@@ -68,9 +68,9 @@ export async function checkOllamaSetup(): Promise<{
     }
     
   } catch (error) {
-    instructions.push('ðŸ“± Download Ollama from: https://ollama.ai');
-    instructions.push('ðŸš€ Start Ollama: ollama serve');
-    instructions.push('ðŸ“¥ Install models:');
+    instructions.push(' Download Ollama from: https://ollama.ai');
+    instructions.push('Start Ollama: ollama serve');
+    instructions.push(' Install models:');
     instructions.push('   ollama pull gemma3:4b');
     instructions.push('   ollama pull nomic-embed-text');
   }
@@ -219,65 +219,7 @@ You are running completely offline with no internet access.`
       // Check for specific category document requests
       const lowerMessage = userMessage.toLowerCase();
       
-      // Check for Cloud category specific requests (keep this one as example)
-      if (lowerMessage.includes('cloud') && (lowerMessage.includes('documents') || lowerMessage.includes('category'))) {
-        console.log('ðŸ“‚ Detected Cloud category search - retrieving from database...');
-        
-        try {
-          const documents = this.crudRepo.getDocumentsByCategory('Cloud');
-          
-          if (documents.length > 0) {
-            const docList = documents.map((doc: any, i: number) => 
-              `${i + 1}. **${doc.title}**\n   ${doc.content.substring(0, 200)}${doc.content.length > 200 ? '...' : ''}`
-            ).join('\n\n');
-            
-            const message = `Found ${documents.length} document(s) in the "Cloud" category:\n\n${docList}`;
-            
-            // Add assistant response to history
-            this.conversationHistory.push({
-              role: 'assistant',
-              content: message,
-              timestamp: new Date(),
-              searchResults: documents
-            });
-
-            const responseTime = Date.now() - startTime;
-
-            return {
-              message,
-              searchResults: documents,
-              sources: documents.map((doc: any) => doc.title),
-              confidence: 100,
-              model: this.chatModel,
-              responseTime
-            };
-          } else {
-            const message = 'No documents found in the "Cloud" category.';
-            
-            // Add assistant response to history
-            this.conversationHistory.push({
-              role: 'assistant',
-              content: message,
-              timestamp: new Date(),
-              searchResults: []
-            });
-
-            const responseTime = Date.now() - startTime;
-
-            return {
-              message,
-              searchResults: [],
-              sources: [],
-              confidence: 100,
-              model: this.chatModel,
-              responseTime
-            };
-          }
-        } catch (error) {
-          console.error('âŒ Error searching Cloud category:', error);
-          // Fall through to normal search
-        }
-      }
+      // Removed special-case Cloud category branch; rely on general handling
 
       // Step 1: Generate embedding for the user's question (offline)
       console.log('ðŸ” Searching database with offline embeddings...');
@@ -297,27 +239,20 @@ You are running completely offline with no internet access.`
       // Step 5: Prepare context for LLM
       const context = this.prepareContext(allResults);
       
-      // Step 6: Check if this might be a categories or tags request and enhance context
+      // Step 6: Classify intent (categories/tags/other) via LLM before enrichment
       let enhancedContext = context;
-      if (lowerMessage.includes('categor')) {
-        try {
+      try {
+        const intent = await (this as any).classifyIntent(userMessage);
+        if (intent === 'categories') {
           const categories = this.crudRepo.getAllCategories();
           const categoryInfo = `\nAVAILABLE CATEGORIES IN DATABASE:\n${categories.map((cat: string, i: number) => `${i + 1}. ${cat}`).join('\n')}\n\nTotal categories: ${categories.length}\n`;
           enhancedContext = categoryInfo + '\n' + context;
-        } catch (error) {
-          console.log('Could not retrieve categories for context');
-        }
-      }
-      
-      if (lowerMessage.includes('tag')) {
-        try {
+        } else if (intent === 'tags') {
           const tags = this.crudRepo.getAllTags();
           const tagInfo = `\nAVAILABLE TAGS IN DATABASE:\n${tags.join(', ')}\n\nTotal tags: ${tags.length}\n`;
           enhancedContext = tagInfo + '\n' + enhancedContext;
-        } catch (error) {
-          console.log('Could not retrieve tags for context');
         }
-      }
+      } catch {}
       
       // Step 7: Generate LLM response (offline)
       const llmResponse = await this.generateOfflineLLMResponse(userMessage, enhancedContext);
@@ -528,6 +463,39 @@ Relevance Score: ${doc.similarity?.toFixed(3) || 'N/A'}
   }
 }
 
+// LLM-assisted intent classifier attached to the service prototype
+(OfflineDatabaseChatService as any).classifyIntent = async function (
+  this: any,
+  message: string
+): Promise<'categories' | 'tags' | 'other'> {
+  try {
+    const sys = [
+      'You are a precise intent classifier.',
+      'Decide if the user asks specifically about listing categories or tags.',
+      'Respond with one word only: categories, tags, or other.'
+    ].join('\n');
+
+    const response = await this.ollama.chat({
+      model: this.chatModel,
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: message }
+      ],
+      options: { temperature: 0 }
+    });
+
+    const text = (response?.message?.content || '').trim().toLowerCase();
+    if (text.includes('categories')) return 'categories';
+    if (text.includes('tags')) return 'tags';
+    return 'other';
+  } catch {
+    const lower = String(message || '').toLowerCase();
+    if (/\bcategories?\b/.test(lower)) return 'categories';
+    if (/\btags?\b/.test(lower)) return 'tags';
+    return 'other';
+  }
+};
+
 // ========================================
 // USAGE EXAMPLE
 // ========================================
@@ -603,5 +571,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
 if (require.main === module) {
   startOfflineDatabaseChat().catch(console.error);
 }
+
+
 
 
