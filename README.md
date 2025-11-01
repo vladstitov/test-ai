@@ -1,4 +1,4 @@
-# SQLite with VSS (Vector Similarity Search) - Node.js
+﻿# SQLite with VSS (Vector Similarity Search) - Node.js
 
 This project demonstrates Vector Similarity Search (VSS) with SQLite in Node.js. It stores embeddings directly in the `documents` table and can leverage the `sqlite-vec` extension for native vector distance functions. A JavaScript fallback is used when the extension is unavailable. Optional offline chat is supported via Ollama.
 
@@ -87,7 +87,7 @@ example().catch(console.error);
 1. Install: https://ollama.ai
 2. Start server: `ollama serve`
 3. Pull models:
-   - `ollama pull llama3.2:3b`
+   - `ollama pull gemma3:4b`
    - `ollama pull nomic-embed-text`
 4. Run: `npm run chat`, `npm run offline-chat`, or `npm run api-demo`
 

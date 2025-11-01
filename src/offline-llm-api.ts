@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // OFFLINE LLM API INTERFACE
 // ========================================
 // Simple JavaScript interface for offline LLM and database communication
@@ -38,16 +38,16 @@ export class OfflineLLMAPI {
       // Check if Ollama is available
       const availability = await this.chatService.checkAvailability();
       if (!availability.ollama || !availability.chatModel || !availability.embeddingModel) {
-        console.error('❌ Ollama is not ready');
-        console.log('💡 Run: ollama serve');
-        console.log('💡 Install models: ollama pull llama3.2:3b && ollama pull nomic-embed-text');
+        console.error('âŒ Ollama is not ready');
+        console.log('ðŸ’¡ Run: ollama serve');
+        console.log('ðŸ’¡ Install models: ollama pull gemma3:4b && ollama pull nomic-embed-text');
         return false;
       }
       
-      console.log('✅ Offline LLM API initialized');
+      console.log('âœ… Offline LLM API initialized');
       return true;
     } catch (error) {
-      console.error('❌ Failed to initialize offline chat:', error);
+      console.error('âŒ Failed to initialize offline chat:', error);
       return false;
     }
   }
@@ -259,28 +259,28 @@ export class OfflineLLMAPI {
 // ========================================
 
 export async function demonstrateOfflineLLMAPI(): Promise<void> {
-  console.log('🚀 Offline LLM API Demo\n');
+  console.log('ðŸš€ Offline LLM API Demo\n');
   
   const api = new OfflineLLMAPI();
   
   try {
     // Initialize the API
-    console.log('🔧 Initializing offline LLM API...');
+    console.log('ðŸ”§ Initializing offline LLM API...');
     const initialized = await api.initialize();
     
     if (!initialized) {
-      console.log('❌ Failed to initialize. Please make sure Ollama is running.');
+      console.log('âŒ Failed to initialize. Please make sure Ollama is running.');
       return;
     }
 
     // Get database stats
     const statsResult = await api.getStats();
     if (statsResult.success) {
-      console.log('📊 Database stats:', statsResult.stats);
+      console.log('ðŸ“Š Database stats:', statsResult.stats);
     }
 
     // Get all categories
-    console.log('\n📂 Available categories:');
+    console.log('\nðŸ“‚ Available categories:');
     const categoriesResult = await api.getCategories();
     if (categoriesResult.success && categoriesResult.categories) {
       if (categoriesResult.categories.length > 0) {
@@ -291,11 +291,11 @@ export async function demonstrateOfflineLLMAPI(): Promise<void> {
         console.log('   No categories found');
       }
     } else {
-      console.log('❌ Categories error:', categoriesResult.error);
+      console.log('âŒ Categories error:', categoriesResult.error);
     }
 
     // Get all tags
-    console.log('\n🏷️  Available tags:');
+    console.log('\nðŸ·ï¸  Available tags:');
     const tagsResult = await api.getTags();
     if (tagsResult.success && tagsResult.tags) {
       if (tagsResult.tags.length > 0) {
@@ -304,50 +304,50 @@ export async function demonstrateOfflineLLMAPI(): Promise<void> {
         console.log('   No tags found');
       }
     } else {
-      console.log('❌ Tags error:', tagsResult.error);
+      console.log('âŒ Tags error:', tagsResult.error);
     }
 
     // Example chat
-    console.log('\n💬 Chat example:');
+    console.log('\nðŸ’¬ Chat example:');
     const chatResult = await api.chat('What documents do you have about machine learning?');
     
     if (chatResult.success) {
-      console.log('🤖 Response:', chatResult.response);
-      console.log('📚 Sources:', chatResult.sources);
-      console.log('🎯 Confidence:', chatResult.confidence);
-      console.log('⚡ Response time:', chatResult.responseTime + 'ms');
+      console.log('ðŸ¤– Response:', chatResult.response);
+      console.log('ðŸ“š Sources:', chatResult.sources);
+      console.log('ðŸŽ¯ Confidence:', chatResult.confidence);
+      console.log('âš¡ Response time:', chatResult.responseTime + 'ms');
     } else {
-      console.log('❌ Chat error:', chatResult.error);
+      console.log('âŒ Chat error:', chatResult.error);
     }
 
     // Example search
-    console.log('\n🔍 Search example:');
+    console.log('\nðŸ” Search example:');
     const searchResult = await api.searchDatabase('artificial intelligence', 3);
     
     if (searchResult.success) {
-      console.log('📄 Found', searchResult.results?.length, 'documents');
+      console.log('ðŸ“„ Found', searchResult.results?.length, 'documents');
       searchResult.results?.forEach((doc, i) => {
         console.log(`   ${i + 1}. ${doc.title} (similarity: ${doc.similarity?.toFixed(3)})`);
       });
     } else {
-      console.log('❌ Search error:', searchResult.error);
+      console.log('âŒ Search error:', searchResult.error);
     }
 
     // Example add document
-    console.log('\n📝 Adding document example:');
+    console.log('\nðŸ“ Adding document example:');
     const addResult = await api.addDocument(
       'API Documentation', 
       'This is documentation for the Offline LLM API, showing how to use it for chat and search.'
     );
     
     if (addResult.success) {
-      console.log('✅ Document added with ID:', addResult.documentId);
+      console.log('âœ… Document added with ID:', addResult.documentId);
     } else {
-      console.log('❌ Add document error:', addResult.error);
+      console.log('âŒ Add document error:', addResult.error);
     }
 
   } catch (error) {
-    console.error('❌ Demo failed:', error);
+    console.error('âŒ Demo failed:', error);
   }
 }
 
