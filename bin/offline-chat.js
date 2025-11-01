@@ -210,7 +210,7 @@ You are running completely offline with no internet access.`
                         return {
                             message,
                             searchResults: documents,
-                            sources: documents.map(doc => doc.title),
+                            sources: documents.map((doc) => doc.title),
                             confidence: 100,
                             model: this.chatModel,
                             responseTime

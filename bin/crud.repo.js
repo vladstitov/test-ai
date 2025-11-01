@@ -19,11 +19,11 @@ class CrudRepository {
         try {
             this.db.exec('SELECT vec_version()');
             this.vssAvailable = true;
-            console.log('🚀 sqlite-vec extension detected - using native vector operations');
+            console.log('[INFO] sqlite-vec extension detected - using native vector operations');
         }
         catch (error) {
             this.vssAvailable = false;
-            console.log('📦 Using JSON embedding storage (sqlite-vec extension not available)');
+            console.log('[INFO] Using JSON embedding storage (sqlite-vec extension not available)');
         }
     }
     // Public method to generate embeddings for search queries
@@ -34,7 +34,7 @@ class CrudRepository {
     getEmbeddingsService() {
         return this.embeddingsService;
     }
-    // Insert a document with its vector embedding (generated using Ollama)
+    // Insert a document with its vector embedding (generated using EmbeddingsService)
     async insertDocument(title, content, category, tags) {
         try {
             // Generate embedding using EmbeddingsService - include all metadata for richer embeddings
@@ -49,8 +49,8 @@ class CrudRepository {
                 const embeddingBuffer = new Float32Array(embedding);
                 const docResult = insertDoc.run(title, content, category || null, tagsString, Buffer.from(embeddingBuffer.buffer));
                 const docId = docResult.lastInsertRowid;
-                console.log(`🚀 VSS: Vector stored as BLOB (${embedding.length} dimensions)`);
-                console.log(`✅ Document inserted with ID: ${docId} using VSS storage`);
+                console.log(`[INFO] VSS: Vector stored as BLOB (${embedding.length} dimensions)`);
+                console.log(`[OK] Document inserted with ID: ${docId} using VSS storage`);
                 return docId;
             }
             else {
@@ -62,13 +62,13 @@ class CrudRepository {
                 const embeddingString = JSON.stringify(embedding);
                 const docResult = insertDoc.run(title, content, category || null, tagsString, embeddingString);
                 const docId = docResult.lastInsertRowid;
-                console.log(`📦 JSON: Vector stored as JSON string (${embedding.length} dimensions)`);
-                console.log(`✅ Document inserted with ID: ${docId} using JSON storage`);
+                console.log(`[INFO] JSON: Vector stored as JSON string (${embedding.length} dimensions)`);
+                console.log(`[OK] Document inserted with ID: ${docId} using JSON storage`);
                 return docId;
             }
         }
         catch (error) {
-            console.error('❌ Error inserting document:', error);
+            console.error('[ERROR] Error inserting document:', error);
             throw error;
         }
     }
@@ -79,27 +79,26 @@ class CrudRepository {
             return stmt.all();
         }
         catch (error) {
-            console.error('❌ Error getting documents:', error);
+            console.error('[ERROR] Error getting documents:', error);
             throw error;
         }
     }
-    // Delete a document (and its embedding via CASCADE)
+    // Delete a document
     deleteDocument(id) {
         try {
-            // Enable foreign keys to ensure CASCADE works
             this.db.exec('PRAGMA foreign_keys = ON');
             const deleteDoc = this.db.prepare('DELETE FROM documents WHERE id = ?');
             const result = deleteDoc.run(id);
             if (result.changes > 0) {
-                console.log(`✅ Document with ID ${id} deleted successfully (including embedding)`);
+                console.log(`[OK] Document with ID ${id} deleted successfully`);
             }
             else {
-                console.log(`⚠️  No document found with ID ${id}`);
+                console.log(`[WARN] No document found with ID ${id}`);
             }
             return result.changes > 0;
         }
         catch (error) {
-            console.error('❌ Error deleting document:', error);
+            console.error('[ERROR] Error deleting document:', error);
             throw error;
         }
     }
@@ -117,7 +116,7 @@ class CrudRepository {
                 params.push(content);
             }
             if (updates.length === 0) {
-                console.log('⚠️  No updates provided');
+                console.log('[WARN] No updates provided');
                 return false;
             }
             updates.push('created_at = CURRENT_TIMESTAMP');
@@ -126,15 +125,15 @@ class CrudRepository {
             const stmt = this.db.prepare(sql);
             const result = stmt.run(...params);
             if (result.changes > 0) {
-                console.log(`✅ Document with ID ${id} updated successfully`);
+                console.log(`[OK] Document with ID ${id} updated successfully`);
             }
             else {
-                console.log(`⚠️  No document found with ID ${id}`);
+                console.log(`[WARN] No document found with ID ${id}`);
             }
             return result.changes > 0;
         }
         catch (error) {
-            console.error('❌ Error updating document:', error);
+            console.error('[ERROR] Error updating document:', error);
             throw error;
         }
     }
@@ -165,85 +164,18 @@ class CrudRepository {
                 created_at: doc.created_at
             };
             if (doc.embedding) {
-                if (this.vssAvailable && Buffer.isBuffer(doc.embedding)) {
-                    // Convert BLOB back to number array
+                if (Buffer.isBuffer(doc.embedding)) {
                     const float32Array = new Float32Array(doc.embedding.buffer, doc.embedding.byteOffset, doc.embedding.byteLength / 4);
                     result.embedding = Array.from(float32Array);
                 }
                 else if (typeof doc.embedding === 'string') {
-                    // Parse JSON string
                     result.embedding = JSON.parse(doc.embedding);
                 }
             }
             return result;
         }
         catch (error) {
-            console.error('❌ Error getting document by ID:', error);
-            throw error;
-        }
-    }
-    // Get all unique categories from documents
-    getAllCategories() {
-        try {
-            const stmt = this.db.prepare(`
-        SELECT DISTINCT category 
-        FROM documents 
-        WHERE category IS NOT NULL AND category != ''
-        ORDER BY category
-      `);
-            const results = stmt.all();
-            return results.map(row => row.category);
-        }
-        catch (error) {
-            console.error('❌ Error getting categories:', error);
-            throw error;
-        }
-    }
-    // Get all unique tags from documents
-    getAllTags() {
-        try {
-            const stmt = this.db.prepare(`
-        SELECT DISTINCT tags 
-        FROM documents 
-        WHERE tags IS NOT NULL AND tags != ''
-      `);
-            const results = stmt.all();
-            const allTags = new Set();
-            // Parse tags from JSON arrays and flatten
-            results.forEach(row => {
-                try {
-                    const tags = JSON.parse(row.tags);
-                    if (Array.isArray(tags)) {
-                        tags.forEach(tag => allTags.add(tag));
-                    }
-                }
-                catch (e) {
-                    // Handle cases where tags might not be JSON
-                    if (row.tags) {
-                        allTags.add(row.tags);
-                    }
-                }
-            });
-            return Array.from(allTags).sort();
-        }
-        catch (error) {
-            console.error('❌ Error getting tags:', error);
-            throw error;
-        }
-    }
-    // Get documents by category
-    getDocumentsByCategory(category) {
-        try {
-            const stmt = this.db.prepare(`
-        SELECT id, title, content, category, tags, created_at 
-        FROM documents 
-        WHERE category = ?
-        ORDER BY created_at DESC
-      `);
-            return stmt.all(category);
-        }
-        catch (error) {
-            console.error('❌ Error getting documents by category:', error);
+            console.error('[ERROR] Error getting document by ID:', error);
             throw error;
         }
     }
@@ -253,20 +185,18 @@ class CrudRepository {
             const stmt = this.db.prepare('SELECT embedding FROM documents WHERE id = ?');
             const result = stmt.get(documentId);
             if (result && result.embedding) {
-                if (this.vssAvailable && Buffer.isBuffer(result.embedding)) {
-                    // Convert BLOB back to number array
+                if (Buffer.isBuffer(result.embedding)) {
                     const float32Array = new Float32Array(result.embedding.buffer, result.embedding.byteOffset, result.embedding.byteLength / 4);
                     return Array.from(float32Array);
                 }
                 else if (typeof result.embedding === 'string') {
-                    // Parse JSON string
                     return JSON.parse(result.embedding);
                 }
             }
             return null;
         }
         catch (error) {
-            console.error('❌ Error getting embedding:', error);
+            console.error('[ERROR] Error getting embedding:', error);
             throw error;
         }
     }
@@ -280,25 +210,23 @@ class CrudRepository {
       `);
             let embeddingData;
             if (this.vssAvailable) {
-                // Store as BLOB for VSS
                 const embeddingBuffer = new Float32Array(newEmbedding);
                 embeddingData = Buffer.from(embeddingBuffer.buffer);
             }
             else {
-                // Store as JSON string
                 embeddingData = JSON.stringify(newEmbedding);
             }
             const result = stmt.run(embeddingData, documentId);
             if (result.changes > 0) {
-                console.log(`✅ Embedding updated for document ID: ${documentId}`);
+                console.log(`[OK] Embedding updated for document ID: ${documentId}`);
             }
             else {
-                console.log(`⚠️  No document found with ID: ${documentId}`);
+                console.log(`[WARN] No document found with ID: ${documentId}`);
             }
             return result.changes > 0;
         }
         catch (error) {
-            console.error('❌ Error updating embedding:', error);
+            console.error('[ERROR] Error updating embedding:', error);
             throw error;
         }
     }
@@ -314,7 +242,7 @@ class CrudRepository {
             };
         }
         catch (error) {
-            console.error('❌ Error getting stats:', error);
+            console.error('[ERROR] Error getting stats:', error);
             throw error;
         }
     }
@@ -337,29 +265,28 @@ class CrudRepository {
             };
         }
         catch (error) {
-            console.error('❌ Error getting database schema:', error);
+            console.error('[ERROR] Error getting database schema:', error);
             throw error;
         }
     }
     // Execute raw SQL query (for LLM-generated queries)
     executeQuery(sql, params = []) {
         try {
-            console.log(`🔍 Executing query: ${sql}`);
+            console.log(`[INFO] Executing query: ${sql}`);
             if (params.length > 0) {
-                console.log(`   Parameters: ${JSON.stringify(params)}`);
+                console.log(`[INFO] Parameters: ${JSON.stringify(params)}`);
             }
-            // Check if it's a SELECT query (read-only)
             const trimmedSql = sql.trim().toLowerCase();
             if (trimmedSql.startsWith('select')) {
                 const stmt = this.db.prepare(sql);
                 const results = stmt.all(...params);
-                console.log(`✅ Query returned ${results.length} rows`);
+                console.log(`[OK] Query returned ${results.length} rows`);
                 return results;
             }
             else if (trimmedSql.startsWith('insert') || trimmedSql.startsWith('update') || trimmedSql.startsWith('delete')) {
                 const stmt = this.db.prepare(sql);
                 const result = stmt.run(...params);
-                console.log(`✅ Query affected ${result.changes} rows`);
+                console.log(`[OK] Query affected ${result.changes} rows`);
                 return result;
             }
             else {
@@ -367,7 +294,7 @@ class CrudRepository {
             }
         }
         catch (error) {
-            console.error('❌ Error executing query:', error);
+            console.error('[ERROR] Error executing query:', error);
             throw error;
         }
     }
@@ -384,24 +311,62 @@ class CrudRepository {
             return this.executeQuery(query, [startDate, endDate, limit]);
         }
         catch (error) {
-            console.error('❌ Error getting documents by date range:', error);
+            console.error('[ERROR] Error getting documents by date range:', error);
             throw error;
         }
     }
-    // Get documents with most recent embeddings
+    // List distinct categories
+    getAllCategories() {
+        try {
+            const rows = this.db.prepare("SELECT DISTINCT category as c FROM documents WHERE category IS NOT NULL ORDER BY category ASC").all();
+            return rows.map(r => r.c);
+        }
+        catch (error) {
+            console.error('[ERROR] Error getting categories:', error);
+            throw error;
+        }
+    }
+    // List distinct tags (split comma-separated, trim, dedupe)
+    getAllTags() {
+        try {
+            const rows = this.db.prepare("SELECT tags FROM documents WHERE tags IS NOT NULL").all();
+            const tagSet = new Set();
+            rows.forEach(r => {
+                r.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+            });
+            return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+        }
+        catch (error) {
+            console.error('[ERROR] Error getting tags:', error);
+            throw error;
+        }
+    }
+    // Get documents by category
+    getDocumentsByCategory(category) {
+        try {
+            const stmt = this.db.prepare('SELECT id, title, content, category, tags, created_at FROM documents WHERE category = ? ORDER BY created_at DESC');
+            return stmt.all(category);
+        }
+        catch (error) {
+            console.error('[ERROR] Error getting documents by category:', error);
+            throw error;
+        }
+    }
+    // Get documents with existing embeddings, most recent first (by document timestamp)
     getRecentlyEmbedded(limit = 10) {
         try {
             const query = `
-        SELECT d.id, d.title, d.content, d.created_at, e.created_at as embedding_created
+        SELECT d.id, d.title, d.content, d.category, d.tags, d.created_at
         FROM documents d
-        JOIN embeddings e ON d.id = e.document_id
-        ORDER BY e.created_at DESC
+        WHERE d.embedding IS NOT NULL
+        ORDER BY d.created_at DESC
         LIMIT ?
       `;
-            return this.executeQuery(query, [limit]);
+            const rows = this.executeQuery(query, [limit]);
+            return rows.map(r => ({ ...r, embedding_created: r.created_at }));
         }
         catch (error) {
-            console.error('❌ Error getting recently embedded documents:', error);
+            console.error('[ERROR] Error getting recently embedded documents:', error);
             throw error;
         }
     }

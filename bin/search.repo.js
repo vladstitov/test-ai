@@ -15,11 +15,11 @@ class SearchRepository {
         try {
             this.db.exec('SELECT vec_version()');
             this.vssAvailable = true;
-            console.log('🚀 SearchRepository: sqlite-vec extension detected');
+            console.log('[INFO] SearchRepository: sqlite-vec extension detected');
         }
         catch (error) {
             this.vssAvailable = false;
-            console.log('📦 SearchRepository: Using JavaScript similarity calculations');
+            console.log('[INFO] SearchRepository: Using JavaScript similarity calculations');
         }
     }
     // Calculate cosine similarity between two vectors
@@ -54,7 +54,7 @@ class SearchRepository {
         try {
             if (this.vssAvailable) {
                 // Use sqlite-vec extension for native vector search on documents table
-                console.log('🚀 Using sqlite-vec native search on documents table');
+                console.log('[INFO] Using sqlite-vec native search on documents table');
                 // Convert query embedding to buffer for VSS
                 const queryBuffer = new Float32Array(queryEmbedding);
                 const queryBlob = Buffer.from(queryBuffer.buffer);
@@ -87,12 +87,12 @@ class SearchRepository {
             }
             else {
                 // Fallback to JavaScript-based similarity calculation
-                console.log('📦 Using JavaScript similarity calculation');
+                console.log('[INFO] Using JavaScript similarity calculation');
                 return this.searchSimilarJS(queryEmbedding, limit, useCosineSimilarity, filters);
             }
         }
         catch (error) {
-            console.error('❌ Error in vector search:', error);
+            console.error('[ERROR] Error in vector search:', error);
             throw error;
         }
     }
@@ -175,7 +175,7 @@ class SearchRepository {
             return filteredSimilarities.slice(0, maxResults);
         }
         catch (error) {
-            console.error('❌ Error searching similar documents:', error);
+            console.error('[ERROR] Error searching similar documents:', error);
             throw error;
         }
     }
@@ -194,7 +194,7 @@ class SearchRepository {
             return stmt.all(searchPattern, searchPattern, searchPattern, searchPattern, limit);
         }
         catch (error) {
-            console.error('❌ Error searching by text:', error);
+            console.error('[ERROR] Error searching by text:', error);
             throw error;
         }
     }
@@ -221,21 +221,21 @@ class SearchRepository {
             return stmt.all(...params);
         }
         catch (error) {
-            console.error('❌ Error in advanced text search:', error);
+            console.error('[ERROR] Error in advanced text search:', error);
             throw error;
         }
     }
     // Hybrid search: combine text search and semantic search
     hybridSearch(query, queryEmbedding, textWeight = 0.3, semanticWeight = 0.7, limit = 10) {
         try {
-            console.log(`🔄 Hybrid Search: "${query}"`);
-            console.log(`   Text weight: ${textWeight}, Semantic weight: ${semanticWeight}`);
+            console.log(`[INFO] Hybrid Search: "${query}"`);
+            console.log(`[INFO] Weights -> Text: ${textWeight}, Semantic: ${semanticWeight}`);
             // Text search
             const textResults = this.searchByText(query, limit * 2); // Get more for better ranking
-            console.log(`📝 Text search found ${textResults.length} results`);
+            console.log(`[INFO] Text search found ${textResults.length} results`);
             // Semantic search
             const semanticResults = this.searchSimilar(queryEmbedding, limit * 2);
-            console.log(`🧠 Semantic search found ${semanticResults.length} results`);
+            console.log(`[INFO] Semantic search found ${semanticResults.length} results`);
             // Combine results
             const combinedResults = new Map();
             // Add text results
@@ -274,7 +274,7 @@ class SearchRepository {
             return finalResults;
         }
         catch (error) {
-            console.error('❌ Error in hybrid search:', error);
+            console.error('[ERROR] Error in hybrid search:', error);
             throw error;
         }
     }
@@ -285,18 +285,41 @@ class SearchRepository {
             const clusters = [];
             const processed = new Set();
             let clusterIndex = 0;
+            // Helper to decode an embedding from the documents table (BLOB or JSON)
+            const getEmbeddingForId = (id) => {
+                const row = this.db.prepare('SELECT embedding FROM documents WHERE id = ?').get(id);
+                if (!row || row.embedding == null)
+                    return null;
+                const data = row.embedding;
+                if (Buffer.isBuffer(data)) {
+                    const buf = data;
+                    const float32 = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+                    return Array.from(float32);
+                }
+                try {
+                    return JSON.parse(data);
+                }
+                catch {
+                    return null;
+                }
+            };
             for (const doc of allResults) {
                 if (processed.has(doc.id))
                     continue;
+                const docEmbedding = getEmbeddingForId(doc.id);
+                if (!docEmbedding) {
+                    processed.add(doc.id);
+                    continue;
+                }
                 const cluster = { cluster: clusterIndex++, documents: [doc] };
                 processed.add(doc.id);
                 // Find similar documents for this cluster
                 for (const otherDoc of allResults) {
                     if (processed.has(otherDoc.id))
                         continue;
-                    // Get embeddings and calculate similarity
-                    const docEmbedding = JSON.parse(this.db.prepare('SELECT embedding FROM embeddings WHERE document_id = ?').get(doc.id)).embedding;
-                    const otherEmbedding = JSON.parse(this.db.prepare('SELECT embedding FROM embeddings WHERE document_id = ?').get(otherDoc.id)).embedding;
+                    const otherEmbedding = getEmbeddingForId(otherDoc.id);
+                    if (!otherEmbedding)
+                        continue;
                     const similarity = this.cosineSimilarity(docEmbedding, otherEmbedding);
                     if (similarity >= similarityThreshold) {
                         cluster.documents.push(otherDoc);
@@ -310,7 +333,7 @@ class SearchRepository {
             return clusters;
         }
         catch (error) {
-            console.error('❌ Error in clustered search:', error);
+            console.error('[ERROR] Error in clustered search:', error);
             throw error;
         }
     }
@@ -365,7 +388,7 @@ class SearchRepository {
             };
         }
         catch (error) {
-            console.error('❌ Error in faceted search:', error);
+            console.error('[ERROR] Error in faceted search:', error);
             throw error;
         }
     }

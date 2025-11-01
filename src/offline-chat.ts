@@ -227,7 +227,7 @@ You are running completely offline with no internet access.`
           const documents = this.crudRepo.getDocumentsByCategory('Cloud');
           
           if (documents.length > 0) {
-            const docList = documents.map((doc, i) => 
+            const docList = documents.map((doc: any, i: number) => 
               `${i + 1}. **${doc.title}**\n   ${doc.content.substring(0, 200)}${doc.content.length > 200 ? '...' : ''}`
             ).join('\n\n');
             
@@ -246,7 +246,7 @@ You are running completely offline with no internet access.`
             return {
               message,
               searchResults: documents,
-              sources: documents.map(doc => doc.title),
+              sources: documents.map((doc: any) => doc.title),
               confidence: 100,
               model: this.chatModel,
               responseTime
@@ -302,7 +302,7 @@ You are running completely offline with no internet access.`
       if (lowerMessage.includes('categor')) {
         try {
           const categories = this.crudRepo.getAllCategories();
-          const categoryInfo = `\nAVAILABLE CATEGORIES IN DATABASE:\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\n\nTotal categories: ${categories.length}\n`;
+          const categoryInfo = `\nAVAILABLE CATEGORIES IN DATABASE:\n${categories.map((cat: string, i: number) => `${i + 1}. ${cat}`).join('\n')}\n\nTotal categories: ${categories.length}\n`;
           enhancedContext = categoryInfo + '\n' + context;
         } catch (error) {
           console.log('Could not retrieve categories for context');

@@ -47,19 +47,19 @@ const sqliteVec = __importStar(require("sqlite-vec"));
 function connectDB() {
     // Hardcoded persistent database path
     const persistentDbPath = 'database.db';
-    console.log('🔌 Connecting to SQLite Database with Vector Extension Support...\n');
+    console.log('[INFO] Connecting to SQLite Database with Vector Extension Support...\n');
     try {
         // Create/Connect to SQLite database
         const db = new better_sqlite3_1.default(persistentDbPath);
         // Load sqlite-vec extension for native vector similarity search
         try {
             sqliteVec.load(db);
-            console.log('✅ sqlite-vec extension loaded successfully');
+            console.log('[OK] sqlite-vec extension loaded successfully');
         }
         catch (error) {
-            console.log('⚠️  sqlite-vec extension failed to load, using JSON fallback');
+            console.log('[WARN] sqlite-vec extension failed to load, using JSON fallback');
         }
-        console.log('✅ SQLite database connection established');
+        console.log('[OK] SQLite database connection established');
         // Check if tables exist, create if they don't
         const result = checkAndCreateTables(db);
         // Check VSS availability for logging
@@ -72,8 +72,8 @@ function connectDB() {
             vssAvailable = false;
         }
         if (result.created) {
-            console.log(`✅ Database initialized successfully: ${persistentDbPath}`);
-            console.log('📋 Database structure:');
+            console.log(`[OK] Database initialized successfully: ${persistentDbPath}`);
+            console.log('[INFO] Database structure:');
             if (vssAvailable) {
                 console.log('   - Table: documents (id, title, content, category, tags, embedding[BLOB], created_at)');
                 console.log('   - Features: Native vector storage in documents table with VSS extension');
@@ -84,14 +84,14 @@ function connectDB() {
             }
         }
         else {
-            console.log(`✅ Connected to existing database: ${persistentDbPath}`);
-            console.log('📊 Using existing tables and data');
+            console.log(`[OK] Connected to existing database: ${persistentDbPath}`);
+            console.log('[INFO] Using existing tables and data');
         }
         // Return the connected database instance
         return db;
     }
     catch (error) {
-        console.error('❌ Error connecting to database:', error);
+        console.error('[ERROR] Error connecting to database:', error);
         throw error;
     }
 }
@@ -102,10 +102,10 @@ function checkAndCreateTables(db) {
     try {
         db.exec('SELECT vec_version()');
         vssAvailable = true;
-        console.log('🚀 sqlite-vec extension available - using native vector storage');
+        console.log('[INFO] sqlite-vec extension available - using native vector storage');
     }
     catch (error) {
-        console.log('ℹ️ sqlite-vec extension not available, using JSON storage');
+        console.log('[INFO] sqlite-vec extension not available, using JSON storage');
     }
     // Check if documents table exists
     const documentsTableExists = db.prepare(`
@@ -114,7 +114,7 @@ function checkAndCreateTables(db) {
   `).get();
     // Create table only if it doesn't exist
     if (!documentsTableExists) {
-        console.log('📋 Creating database tables...');
+        console.log('[INFO] Creating database tables...');
         if (vssAvailable) {
             // Create documents table with BLOB embedding column for VSS
             db.exec(`
@@ -128,7 +128,7 @@ function checkAndCreateTables(db) {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
-            console.log('✅ Created documents table with BLOB embedding column (VSS mode)');
+            console.log('[OK] Created documents table with BLOB embedding column (VSS mode)');
         }
         else {
             // Create documents table with TEXT embedding column for JSON fallback
@@ -143,15 +143,15 @@ function checkAndCreateTables(db) {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
-            console.log('✅ Created documents table with TEXT embedding column (JSON mode)');
+            console.log('[OK] Created documents table with TEXT embedding column (JSON mode)');
         }
         // Enable foreign keys
         db.exec('PRAGMA foreign_keys = ON;');
-        console.log('✅ Table created successfully');
+        console.log('[OK] Table created successfully');
         tablesCreated = true;
     }
     else {
-        console.log('✅ Database table already exists');
+        console.log('[OK] Database table already exists');
         // Still enable foreign keys
         db.exec('PRAGMA foreign_keys = ON;');
     }

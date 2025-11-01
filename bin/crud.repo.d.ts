@@ -42,15 +42,15 @@ export declare class CrudRepository {
     deleteDocument(id: number): boolean;
     updateDocument(id: number, title?: string, content?: string): boolean;
     getDocumentById(id: number): DocumentWithEmbedding | null;
-    getAllCategories(): string[];
-    getAllTags(): string[];
-    getDocumentsByCategory(category: string): Document[];
     getEmbeddingByDocumentId(documentId: number): number[] | null;
     updateEmbedding(documentId: number, newEmbedding: number[]): boolean;
     getStats(): DatabaseStats;
     getDatabaseSchema(): DatabaseSchema;
     executeQuery(sql: string, params?: any[]): any;
     getDocumentsByDateRange(startDate: string, endDate: string, limit?: number): Document[];
+    getAllCategories(): string[];
+    getAllTags(): string[];
+    getDocumentsByCategory(category: string): Document[];
     getRecentlyEmbedded(limit?: number): Array<Document & {
         embedding_created: string;
     }>;
