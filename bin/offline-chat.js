@@ -459,22 +459,22 @@ exports.OfflineDatabaseChatService = OfflineDatabaseChatService;
 async function startOfflineDatabaseChat() {
     const { connectDB } = await Promise.resolve().then(() => __importStar(require('./create-db')));
     try {
-        console.log('ðŸ” Checking Ollama setup...\n');
+        console.log('[INFO] Checking Ollama setup...\\n');
         // Check Ollama setup first
         const setup = await checkOllamaSetup();
         if (!setup.running) {
-            console.log('âŒ Ollama is not running!');
-            console.log('\nðŸ“‹ Setup Instructions:');
+            console.log('[ERROR] Ollama is not running!');
+            console.log('\n[INFO] Setup Instructions:');
             setup.instructions.forEach(instruction => {
                 console.log(`   ${instruction}`);
             });
-            console.log('\nðŸ’¡ Ollama is NOT a web server - it\'s a desktop app that runs locally!');
-            console.log('ï¿½ Once you start "ollama serve", it runs at http://localhost:11434');
+            console.log('\n[INFO] Ollama is NOT a web server — it\'s a desktop app that runs locally!');
+            console.log('[INFO] Once you start "ollama serve", it runs at http://localhost:11434');
             return;
         }
         if (!setup.modelsAvailable) {
-            console.log('âš ï¸ Required models not installed!');
-            console.log('\nï¿½ Run these commands:');
+            console.log('[WARN] Required models not installed!');
+            console.log('\n[INFO] Run these commands:');
             setup.instructions.forEach(instruction => {
                 console.log(`   ${instruction}`);
             });
@@ -492,14 +492,12 @@ async function startOfflineDatabaseChat() {
         const stats = crudRepo.getStats();
         if (stats.documents === 0) {
             console.log('âš ï¸ Database is empty. Please add some documents first.');
-            console.log('Run: npm run test  (to add dummy data)');
             return;
         }
-        console.log(`ðŸ“Š Connected to database with ${stats.documents} documents`);
+        console.log('[INFO] Connected to database with ' + stats.documents + ' documents');
         // Initialize offline chat service
         const chatService = new OfflineDatabaseChatService(searchRepo, crudRepo);
-        console.log('ðŸŽ‰ Offline chat is ready!');
-        console.log('Models available:', await chatService.listAvailableModels());
+        console.log('[OK] Offline chat is ready!');
         // Start console interface (reuse existing one)
         const { ConsoleChatInterface } = await Promise.resolve().then(() => __importStar(require('./chat-interface')));
         const chatInterface = new ConsoleChatInterface(chatService);
