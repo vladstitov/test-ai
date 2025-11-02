@@ -75,11 +75,11 @@ function connectDB() {
             console.log(`[OK] Database initialized successfully: ${persistentDbPath}`);
             console.log('[INFO] Database structure:');
             if (vssAvailable) {
-                console.log('   - Table: documents (id, title, content, category, tags, embedding[BLOB], created_at)');
+                console.log('   - Table: documents (id, title, content, embedding[BLOB], created_at)');
                 console.log('   - Features: Native vector storage in documents table with VSS extension');
             }
             else {
-                console.log('   - Table: documents (id, title, content, category, tags, embedding[TEXT], created_at)');
+                console.log('   - Table: documents (id, title, content, embedding[TEXT], created_at)');
                 console.log('   - Features: JSON embeddings stored in documents table');
             }
         }
@@ -122,8 +122,6 @@ function checkAndCreateTables(db) {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
-          category TEXT,
-          tags TEXT,
           embedding BLOB, -- Store embedding as BLOB for VSS
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -137,8 +135,6 @@ function checkAndCreateTables(db) {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
-          category TEXT,
-          tags TEXT,
           embedding TEXT, -- Store embedding as JSON string
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -154,6 +150,39 @@ function checkAndCreateTables(db) {
         console.log('[OK] Database table already exists');
         // Still enable foreign keys
         db.exec('PRAGMA foreign_keys = ON;');
+    }
+    // Create funds table to mirror MongoDB fund fields
+    const fundsTableExists = db.prepare(`
+    SELECT name FROM sqlite_master
+    WHERE type='table' AND name='funds'
+  `).get();
+    if (!fundsTableExists) {
+        console.log('[INFO] Creating funds table for Mongo fields...');
+        db.exec(`
+      CREATE TABLE funds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        _id TEXT UNIQUE,                -- MongoDB document _id as string
+        name TEXT,
+        aliases TEXT,                   -- JSON array as string
+        fundType TEXT,
+        vintage INTEGER,
+        strategy TEXT,
+        geography TEXT,
+        strategyGroup TEXT,
+        geographyGroup TEXT,
+        fundSize REAL,
+        targetSize REAL,
+        status TEXT,
+        industries TEXT,                -- JSON array as string
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_funds__id ON funds(_id);`);
+        console.log('[OK] Created funds table');
+        tablesCreated = true;
+    }
+    else {
+        console.log('[OK] Funds table already exists');
     }
     return { created: tablesCreated };
 }

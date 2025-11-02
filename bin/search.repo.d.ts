@@ -1,38 +1,35 @@
 import Database from 'better-sqlite3';
-import { Document } from './crud.repo';
-export interface DocumentWithSimilarity extends Document {
+import type { IOFundModel } from './fund.types';
+export interface FundWithSimilarity extends IOFundModel {
     similarity: number;
     distance: number;
+    created_at: string;
 }
 export interface SearchFilters {
     startDate?: string;
     endDate?: string;
-    categories?: string[];
     minSimilarity?: number;
     maxResults?: number;
 }
-export interface HybridSearchResult extends DocumentWithSimilarity {
+export interface HybridSearchResult extends FundWithSimilarity {
     textScore: number;
     semanticScore: number;
     totalScore: number;
 }
 export declare class SearchRepository {
     private db;
-    private vssAvailable;
     constructor(dbInstance: Database.Database);
-    cosineSimilarity(vecA: number[], vecB: number[]): number;
-    euclideanDistance(vecA: number[], vecB: number[]): number;
-    searchSimilar(queryEmbedding: number[], limit?: number, useCosineSimilarity?: boolean, filters?: SearchFilters): DocumentWithSimilarity[];
-    private searchSimilarJS;
-    searchByText(searchTerm: string, limit?: number): Document[];
-    searchByTextAdvanced(searchTerms: string[], operator?: 'AND' | 'OR', limit?: number): Document[];
-    hybridSearch(query: string, queryEmbedding: number[], textWeight?: number, semanticWeight?: number, limit?: number): HybridSearchResult[];
-    searchWithClustering(queryEmbedding: number[], limit?: number, similarityThreshold?: number): Array<{
+    private parseJsonList;
+    searchByText(searchTerm: string, limit?: number): IOFundModel[];
+    searchByTextAdvanced(searchTerms: string[], operator?: 'AND' | 'OR', limit?: number): IOFundModel[];
+    searchSimilar(_queryEmbedding: number[], _limit?: number): FundWithSimilarity[];
+    hybridSearch(query: string, _queryEmbedding: number[], textWeight?: number, semanticWeight?: number, limit?: number): HybridSearchResult[];
+    searchWithClustering(_queryEmbedding: number[], _limit?: number, _similarityThreshold?: number): Array<{
         cluster: number;
-        documents: DocumentWithSimilarity[];
+        documents: FundWithSimilarity[];
     }>;
     searchWithFacets(queryEmbedding: number[], limit?: number): {
-        results: DocumentWithSimilarity[];
+        results: FundWithSimilarity[];
         facets: {
             similarityRanges: {
                 range: string;

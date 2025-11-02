@@ -1,42 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const create_db_1 = require("./create-db");
+const sqlite_connector_1 = require("./sqlite-connector");
 const crud_repo_1 = require("./crud.repo");
 const search_repo_1 = require("./search.repo");
 const embeddings_service_1 = require("./embeddings.service");
-const dummy_data_loader_1 = require("./dummy-data-loader");
 async function runTests() {
     console.log('[INFO] Running SQLite VSS Tests...\n');
     let crudRepo;
     let searchRepo;
     try {
         // Test 1: Database initialization and data loading
-        console.log('Test 1: Database Initialization and Data Loading');
-        // Create/connect to database (always uses database.db)
-        const dbInstance = (0, create_db_1.connectDB)();
+        console.log('Test 1: Database Initialization');
+        // Connect to existing database (load-real-data should prepare it)
+        const dbInstance = (0, sqlite_connector_1.connectDB)();
         // Create embeddings service
         const embeddingsService = new embeddings_service_1.EmbeddingsService('nomic-embed-text');
         // Create repository instances
         crudRepo = new crud_repo_1.CrudRepository(dbInstance, embeddingsService);
         searchRepo = new search_repo_1.SearchRepository(dbInstance);
-        // If database is new or empty, load dummy data
         const stats = crudRepo.getStats();
         console.log(`[INFO] Current Database Stats: Documents=${stats.documents}, Embeddings=${stats.embeddings}`);
-        if (stats.documents === 0) {
-            console.log('[INFO] Database is empty. Loading dummy data...');
-            // Load dummy data statistics first
-            const dummyStats = (0, dummy_data_loader_1.getDummyDataStats)();
-            console.log(`[INFO] Dummy Data Overview:`);
-            console.log(`   Total Documents: ${dummyStats.totalDocuments}`);
-            console.log(`   Categories: ${dummyStats.categories} (${dummyStats.categoryList.join(', ')})`);
-            console.log(`   Average Content Length: ${dummyStats.averageContentLength} characters`);
-            // Insert dummy data into database
-            const insertedCount = await (0, dummy_data_loader_1.insertDummyDataToDatabase)(crudRepo);
-            console.log(`[OK] ${insertedCount} documents from dummy-data.json`);
-        }
-        else {
-            console.log(`[OK] Database already contains ${stats.documents} documents`);
-        }
+        console.log('[OK] Database connectivity verified');
         console.log('[OK] PASSED\n');
         // Test 2: Retrieve all documents
         console.log('Test 2: Retrieve All Documents');

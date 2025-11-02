@@ -1,11 +1,7 @@
-import { connectDB } from './create-db';
+import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { SearchRepository } from './search.repo';
 import { EmbeddingsService } from './embeddings.service';
-import {
-  insertDummyDataToDatabase,
-  getDummyDataStats
-} from './dummy-data-loader';
 
 async function runTests(): Promise<void> {
   console.log('[INFO] Running SQLite VSS Tests...\n');
@@ -15,9 +11,8 @@ async function runTests(): Promise<void> {
 
   try {
     // Test 1: Database initialization and data loading
-    console.log('Test 1: Database Initialization and Data Loading');
-
-    // Create/connect to database (always uses database.db)
+    console.log('Test 1: Database Initialization');
+    // Connect to existing database (load-real-data should prepare it)
     const dbInstance = connectDB();
 
     // Create embeddings service
@@ -27,28 +22,10 @@ async function runTests(): Promise<void> {
     crudRepo = new CrudRepository(dbInstance, embeddingsService);
     searchRepo = new SearchRepository(dbInstance);
 
-    // If database is new or empty, load dummy data
     const stats = crudRepo.getStats();
 
     console.log(`[INFO] Current Database Stats: Documents=${stats.documents}, Embeddings=${stats.embeddings}`);
-
-    if (stats.documents === 0) {
-      console.log('[INFO] Database is empty. Loading dummy data...');
-      // Load dummy data statistics first
-      const dummyStats = getDummyDataStats();
-
-      console.log(`[INFO] Dummy Data Overview:`);
-      console.log(`   Total Documents: ${dummyStats.totalDocuments}`);
-      console.log(`   Categories: ${dummyStats.categories} (${dummyStats.categoryList.join(', ')})`);
-      console.log(`   Average Content Length: ${dummyStats.averageContentLength} characters`);
-
-      // Insert dummy data into database
-      const insertedCount = await insertDummyDataToDatabase(crudRepo);
-
-      console.log(`[OK] ${insertedCount} documents from dummy-data.json`);
-    } else {
-      console.log(`[OK] Database already contains ${stats.documents} documents`);
-    }
+    console.log('[OK] Database connectivity verified');
 
     console.log('[OK] PASSED\n');
 
@@ -74,7 +51,7 @@ async function runTests(): Promise<void> {
     if (similarDocs.length > 0) {
       console.log(`[OK] PASSED - Found ${similarDocs.length} similar document(s) for: "${queryText}"`);
       similarDocs.forEach((doc, index) => {
-        console.log(`   ${index + 1}. "${doc.title}" (Similarity: ${doc.similarity.toFixed(4)})`);
+        console.log(`   ${index + 1}. "${(doc as any).name ?? ''}" (Similarity: ${doc.similarity.toFixed(4)})`);
       });
       console.log();
     } else {
@@ -87,7 +64,7 @@ async function runTests(): Promise<void> {
     if (textResults.length > 0) {
       console.log(`[OK] PASSED - Found ${textResults.length} documents with text search`);
       textResults.forEach((doc, index) => {
-        console.log(`   ${index + 1}. "${doc.title}"`);
+        console.log(`   ${index + 1}. "${doc.name}"`);
       });
       console.log();
     } else {
@@ -99,7 +76,7 @@ async function runTests(): Promise<void> {
     const enhancedSearch = searchRepo.searchSimilar(queryEmbedding, 5);
     console.log(`[OK] PASSED - Found ${enhancedSearch.length} documents:`);
     enhancedSearch.forEach((doc, index) => {
-      console.log(`   ${index + 1}. "${doc.title}" (Similarity: ${doc.similarity.toFixed(4)})`);
+      console.log(`   ${index + 1}. "${(doc as any).name ?? ''}" (Similarity: ${doc.similarity.toFixed(4)})`);
     });
     console.log();
 
@@ -116,7 +93,7 @@ async function runTests(): Promise<void> {
     const hybridResults = searchRepo.hybridSearch('machine learning', queryEmbedding, 0.3, 0.7, 5);
     console.log(`[OK] PASSED - Found ${hybridResults.length} hybrid search results:`);
     hybridResults.forEach((doc, index) => {
-      console.log(` ${index + 1}. "${doc.title}" (Total: ${doc.totalScore.toFixed(4)})`);
+      console.log(` ${index + 1}. "${(doc as any).name ?? ''}" (Total: ${doc.totalScore.toFixed(4)})`);
     });
     console.log();
 
@@ -140,4 +117,3 @@ async function main(): Promise<void> {
 if (require.main === module) {
   main().catch(console.error);
 }
-

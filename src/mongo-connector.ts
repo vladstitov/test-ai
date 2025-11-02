@@ -1,4 +1,5 @@
 type AnyDoc = Record<string, any>;
+import type { IOFundModel } from './fund.types';
 
 interface ImportOptions {
   mongoUri?: string; host?: string; port?: string|number; user?: string; pass?: string; db?: string; params?: string;
@@ -7,7 +8,7 @@ interface ImportOptions {
 function defaultOptions(): ImportOptions {
   return {
     mongoUri: undefined,
-    // Hardcoded defaults per request: IP 10.0.0.89 and DB "secondary"
+    // Hardcoded defaults per request
     host: '10.0.0.89',
     port: 27017,
     user: undefined,
@@ -21,7 +22,9 @@ function buildUri(o: ImportOptions): string {
   if (o.mongoUri) return o.mongoUri;
   const host = o.host || '127.0.0.1'; const port = String(o.port || 27017);
   const user = o.user ? encodeURIComponent(o.user) : ''; const pass = o.pass ? encodeURIComponent(o.pass) : '';
-  const auth = user && pass ? `${user}:${pass}@` : ''; const db = o.db || ''; const params = o.params ? `?${o.params}` : '';
+  const auth = (user || pass) ? `${user}${pass ? `:${pass}` : ''}@` : '';
+  const db = o.db || '';
+  const params = o.params ? `?${o.params}` : '';
   return `mongodb://${auth}${host}:${port}/${db}${params}`;
 }
 
@@ -30,7 +33,7 @@ async function loadMongoClient(): Promise<any> {
   catch { throw new Error('Missing dependency: mongodb. Install with: npm i mongodb'); }
 }
 
-export async function getFunds(offset: number = 0, limit: number = 100): Promise<AnyDoc[]> {
+export async function getFunds(offset: number = 0, limit: number = 100): Promise<IOFundModel[]> {
   const o = defaultOptions();
   const uri = buildUri(o);
   const dbName = o.db || (new URL(uri).pathname.replace(/^\//,'') || undefined);
@@ -63,7 +66,7 @@ export async function getFunds(offset: number = 0, limit: number = 100): Promise
       .skip(safeOffset)
       .limit(safeLimit);
     const docs = await cursor.toArray();
-    return docs as AnyDoc[];
+    return docs as unknown as IOFundModel[];
   } finally {
     try { await client.close(); } catch {}
   }

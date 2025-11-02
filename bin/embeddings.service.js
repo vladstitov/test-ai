@@ -26,12 +26,9 @@ class EmbeddingsService {
             throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-    // Generate embedding for document with metadata
-    async generateDocumentEmbedding(title, content, category, tags) {
-        // Include all metadata for richer embeddings
-        const categoryText = category ? `\nCategory: ${category}` : '';
-        const tagsText = tags && tags.length > 0 ? `\nTags: ${tags.join(', ')}` : '';
-        const combinedText = `${title}\n\n${content}${categoryText}${tagsText}`;
+    // Generate embedding for a document (metadata removed)
+    async generateDocumentEmbedding(title, content) {
+        const combinedText = `${title}\n\n${content}`;
         return this.generateEmbedding(combinedText);
     }
     // Generate embedding for search queries

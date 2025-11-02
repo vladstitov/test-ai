@@ -38,7 +38,7 @@ exports.getPrices = getPrices;
 function defaultOptions() {
     return {
         mongoUri: undefined,
-        // Hardcoded defaults per request: IP 10.0.0.89 and DB "secondary"
+        // Hardcoded defaults per request
         host: '10.0.0.89',
         port: 27017,
         user: undefined,
@@ -54,7 +54,7 @@ function buildUri(o) {
     const port = String(o.port || 27017);
     const user = o.user ? encodeURIComponent(o.user) : '';
     const pass = o.pass ? encodeURIComponent(o.pass) : '';
-    const auth = user && pass ? `${user}:${pass}@` : '';
+    const auth = (user || pass) ? `${user}${pass ? `:${pass}` : ''}@` : '';
     const db = o.db || '';
     const params = o.params ? `?${o.params}` : '';
     return `mongodb://${auth}${host}:${port}/${db}${params}`;

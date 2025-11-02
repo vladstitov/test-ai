@@ -1,16 +1,12 @@
 import Database from 'better-sqlite3';
 import { EmbeddingsService } from './embeddings.service';
-export interface Document {
+import type { IOFundModel } from './fund.types';
+export type Document = IOFundModel & {
     id: number;
-    title: string;
-    content: string;
-    category?: string;
-    tags?: string;
     created_at: string;
-}
-export interface DocumentWithEmbedding extends Document {
-    embedding?: number[];
-}
+    title?: string;
+    content?: string;
+};
 export interface DatabaseStats {
     documents: number;
     embeddings: number;
@@ -35,22 +31,24 @@ export declare class CrudRepository {
     private embeddingsService;
     private vssAvailable;
     constructor(dbInstance: Database.Database, embeddingsService: EmbeddingsService);
+    private parseJsonList;
+    private buildFundContent;
+    private fundRowToDocument;
     generateQueryEmbedding(text: string): Promise<number[]>;
     getEmbeddingsService(): EmbeddingsService;
-    insertDocument(title: string, content: string, category?: string, tags?: string[]): Promise<number>;
+    insertFund(fund: IOFundModel): number;
     getAllDocuments(): Document[];
     deleteDocument(id: number): boolean;
-    updateDocument(id: number, title?: string, content?: string): boolean;
-    getDocumentById(id: number): DocumentWithEmbedding | null;
+    updateDocument(id: number, changes: Partial<IOFundModel>): boolean;
+    getDocumentById(id: number): Document | null;
     getEmbeddingByDocumentId(documentId: number): number[] | null;
     updateEmbedding(documentId: number, newEmbedding: number[]): boolean;
     getStats(): DatabaseStats;
     getDatabaseSchema(): DatabaseSchema;
     executeQuery(sql: string, params?: any[]): any;
     getDocumentsByDateRange(startDate: string, endDate: string, limit?: number): Document[];
-    getAllCategories(): string[];
-    getAllTags(): string[];
-    getDocumentsByCategory(category: string): Document[];
+    getStrategies(): string[];
+    getGeographies(): string[];
     getRecentlyEmbedded(limit?: number): Array<Document & {
         embedding_created: string;
     }>;

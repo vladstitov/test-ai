@@ -31,13 +31,9 @@ export class EmbeddingsService {
     }
   }
 
-  // Generate embedding for document with metadata
-  async generateDocumentEmbedding(title: string, content: string, category?: string, tags?: string[]): Promise<number[]> {
-    // Include all metadata for richer embeddings
-    const categoryText = category ? `\nCategory: ${category}` : '';
-    const tagsText = tags && tags.length > 0 ? `\nTags: ${tags.join(', ')}` : '';
-    const combinedText = `${title}\n\n${content}${categoryText}${tagsText}`;
-    
+  // Generate embedding for a document (metadata removed)
+  async generateDocumentEmbedding(title: string, content: string): Promise<number[]> {
+    const combinedText = `${title}\n\n${content}`;
     return this.generateEmbedding(combinedText);
   }
 

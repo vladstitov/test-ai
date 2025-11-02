@@ -12,7 +12,8 @@
     "test": "npm run build && node bin/test.js",
     "chat": "npm run build && node bin/chat-interface.js",
     "offline-chat": "npm run build && node bin/offline-chat.js",
-    "api-demo": "npm run build && node bin/offline-llm-api.js"
+    "api-demo": "npm run build && node bin/offline-llm-api.js",
+    "load:funds": "npm run build && node bin/load-real-data.js"
   },
   "keywords": [
     "sqlite",

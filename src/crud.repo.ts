@@ -1,22 +1,12 @@
 import Database from 'better-sqlite3';
 import { EmbeddingsService } from './embeddings.service';
+import type { IOFundModel } from './fund.types';
 
 // ========================================
 // TYPES AND INTERFACES
 // ========================================
 
-export interface Document {
-  id: number;
-  title: string;
-  content: string;
-  category?: string;
-  tags?: string;
-  created_at: string;
-}
-
-export interface DocumentWithEmbedding extends Document {
-  embedding?: number[];
-}
+export type Document = IOFundModel & { id: number; created_at: string; title?: string; content?: string };
 
 export interface DatabaseStats {
   documents: number;
@@ -72,6 +62,51 @@ export class CrudRepository {
     }
   }
 
+  // Helper: parse JSON array string into string[] safely
+  private parseJsonList(jsonStr?: string): string[] {
+    if (!jsonStr) return [];
+    try {
+      const arr = JSON.parse(jsonStr);
+      return Array.isArray(arr) ? arr.map((x: any) => String(x)) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  // Helper: build a readable content string from a funds row
+  private buildFundContent(r: {
+    name?: string; aliases?: string; fundType?: string; status?: string; vintage?: number;
+    strategy?: string; strategyGroup?: string; geography?: string; geographyGroup?: string;
+    industries?: string; fundSize?: number; targetSize?: number;
+  }): string {
+    const aliases = this.parseJsonList(r.aliases);
+    const industries = this.parseJsonList(r.industries);
+    const parts: string[] = [];
+    parts.push(`Name: ${r.name ?? 'Unknown'}`);
+    if (aliases.length) parts.push(`Aliases: ${aliases.join(', ')}`);
+    if (r.fundType) parts.push(`Type: ${r.fundType}`);
+    if (r.status) parts.push(`Status: ${r.status}`);
+    if (r.vintage != null) parts.push(`Vintage: ${r.vintage}`);
+    if (r.strategy) parts.push(`Strategy: ${r.strategy}`);
+    if (r.strategyGroup) parts.push(`Strategy Group: ${r.strategyGroup}`);
+    if (r.geography) parts.push(`Geography: ${r.geography}`);
+    if (r.geographyGroup) parts.push(`Geography Group: ${r.geographyGroup}`);
+    if (industries.length) parts.push(`Industries: ${industries.join(', ')}`);
+    if (r.fundSize != null) parts.push(`Fund Size: ${r.fundSize}`);
+    if (r.targetSize != null) parts.push(`Target Size: ${r.targetSize}`);
+    return parts.join('\n');
+  }
+
+  // Helper: map a funds row to a Document-like object
+  private fundRowToDocument(r: { id: number; name: string; created_at: string } & any): Document {
+    return {
+      id: r.id,
+      title: r.name,
+      content: this.buildFundContent(r),
+      created_at: r.created_at,
+    } as Document;
+  }
+
   // Public method to generate embeddings for search queries
   async generateQueryEmbedding(text: string): Promise<number[]> {
     return this.embeddingsService.generateQueryEmbedding(text);
@@ -82,54 +117,64 @@ export class CrudRepository {
     return this.embeddingsService;
   }
 
-  // Insert a document with its vector embedding (generated using EmbeddingsService)
-  async insertDocument(title: string, content: string, category?: string, tags?: string[]): Promise<number> {
+  // Insert a fund: persists raw fields to funds only
+  insertFund(fund: IOFundModel): number {
     try {
-      // Generate embedding using EmbeddingsService - include all metadata for richer embeddings
-      const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content, category, tags);
-
-      const tagsString = tags ? tags.join(', ') : null;
-
-      if (this.vssAvailable) {
-        // Use VSS extension: store embedding as BLOB in documents table
-        const insertDoc = this.db.prepare(`
-          INSERT INTO documents (title, content, category, tags, embedding) 
-          VALUES (?, ?, ?, ?, ?)
-        `);
-
-        const embeddingBuffer = new Float32Array(embedding);
-        const docResult = insertDoc.run(title, content, category || null, tagsString, Buffer.from(embeddingBuffer.buffer));
-        const docId = docResult.lastInsertRowid as number;
-
-        console.log(`[INFO] VSS: Vector stored as BLOB (${embedding.length} dimensions)`);
-        console.log(`[OK] Document inserted with ID: ${docId} using VSS storage`);
-        return docId;
-      } else {
-        // Fallback to JSON storage in documents table
-        const insertDoc = this.db.prepare(`
-          INSERT INTO documents (title, content, category, tags, embedding) 
-          VALUES (?, ?, ?, ?, ?)
-        `);
-
-        const embeddingString = JSON.stringify(embedding);
-        const docResult = insertDoc.run(title, content, category || null, tagsString, embeddingString);
-        const docId = docResult.lastInsertRowid as number;
-
-        console.log(`[INFO] JSON: Vector stored as JSON string (${embedding.length} dimensions)`);
-        console.log(`[OK] Document inserted with ID: ${docId} using JSON storage`);
-        return docId;
+      // Persist raw fields into funds table, then map to documents
+      try {
+        const aliasesJson = JSON.stringify(fund.aliases ?? []);
+        const industriesJson = JSON.stringify(fund.industries ?? []);
+        this.executeQuery(
+          `INSERT OR IGNORE INTO funds (
+            _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, industries
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            String(fund._id),
+            fund.name ?? null,
+            aliasesJson,
+            fund.fundType ?? null,
+            fund.vintage ?? null,
+            fund.strategy ?? null,
+            fund.geography ?? null,
+            fund.strategyGroup ?? null,
+            fund.geographyGroup ?? null,
+            fund.fundSize ?? null,
+            fund.targetSize ?? null,
+            fund.status ?? null,
+            industriesJson,
+          ]
+        );
+      } catch (e) {
+        console.warn('[WARN] insertFund: failed inserting into funds table:', (e as Error).message);
       }
+
+      // Return the primary key id of the funds row
+      const row = this.db.prepare('SELECT id FROM funds WHERE _id = ?').get(String(fund._id)) as { id: number } | undefined;
+      const id = row?.id ?? 0;
+      if (id) {
+        console.log(`[OK] Fund upserted with ID: ${id}`);
+      } else {
+        console.log('[WARN] Fund insert did not return an ID');
+      }
+      return id;
     } catch (error) {
-      console.error('[ERROR] Error inserting document:', error);
+      console.error('[ERROR] Error inserting fund:', error);
       throw error;
     }
   }
 
-  // Get all documents
+  // Get all documents (synthesized from funds rows)
   getAllDocuments(): Document[] {
     try {
-      const stmt = this.db.prepare('SELECT id, title, content, category, tags, created_at FROM documents ORDER BY created_at DESC');
-      return stmt.all() as Document[];
+      // Adapted to new structure: synthesize documents from funds rows
+      const rows = this.db.prepare(`
+        SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
+               fundSize, targetSize, status, industries, created_at
+        FROM funds
+        ORDER BY created_at DESC
+      `).all() as Array<IOFundModel>;
+
+      return rows.map(r => this.fundRowToDocument(r));
     } catch (error) {
       console.error('[ERROR] Error getting documents:', error);
       throw error;
@@ -139,175 +184,107 @@ export class CrudRepository {
   // Delete a document
   deleteDocument(id: number): boolean {
     try {
-      this.db.exec('PRAGMA foreign_keys = ON');
-
-      const deleteDoc = this.db.prepare('DELETE FROM documents WHERE id = ?');
-      const result = deleteDoc.run(id);
-
+      const stmt = this.db.prepare('DELETE FROM funds WHERE id = ?');
+      const result = stmt.run(id);
       if (result.changes > 0) {
-        console.log(`[OK] Document with ID ${id} deleted successfully`);
-      } else {
-        console.log(`[WARN] No document found with ID ${id}`);
+        console.log(`[OK] Fund deleted with ID: ${id}`);
+        return true;
       }
-
-      return result.changes > 0;
+      console.log(`[WARN] No fund found with ID: ${id}`);
+      return false;
     } catch (error) {
-      console.error('[ERROR] Error deleting document:', error);
+      console.error('[ERROR] Error deleting fund:', error);
       throw error;
     }
   }
 
-  // Update document content
-  updateDocument(id: number, title?: string, content?: string): boolean {
+  // Update fund fields (partial)
+  updateDocument(id: number, changes: Partial<IOFundModel>): boolean {
     try {
       const updates: string[] = [];
       const params: any[] = [];
 
-      if (title !== undefined) {
-        updates.push('title = ?');
-        params.push(title);
-      }
+      const map: Array<[keyof IOFundModel, string, (v: any) => any]> = [
+        ['name', 'name = ?', (v) => v],
+        ['fundType', 'fundType = ?', (v) => v],
+        ['vintage', 'vintage = ?', (v) => v],
+        ['strategy', 'strategy = ?', (v) => v],
+        ['geography', 'geography = ?', (v) => v],
+        ['strategyGroup', 'strategyGroup = ?', (v) => v],
+        ['geographyGroup', 'geographyGroup = ?', (v) => v],
+        ['fundSize', 'fundSize = ?', (v) => v],
+        ['targetSize', 'targetSize = ?', (v) => v],
+        ['status', 'status = ?', (v) => v],
+        ['aliases', 'aliases = ?', (v) => JSON.stringify(Array.isArray(v) ? v : (v == null ? [] : [String(v)]))],
+        ['industries', 'industries = ?', (v) => JSON.stringify(Array.isArray(v) ? v : (v == null ? [] : [String(v)]))],
+      ];
 
-      if (content !== undefined) {
-        updates.push('content = ?');
-        params.push(content);
+      for (const [key, fragment, transform] of map) {
+        if (key in changes) {
+          updates.push(fragment);
+          // @ts-ignore
+          params.push(transform((changes as any)[key]));
+        }
       }
 
       if (updates.length === 0) {
-        console.log('[WARN] No updates provided');
+        console.log('[WARN] No fields to update for fund');
         return false;
       }
 
-      updates.push('created_at = CURRENT_TIMESTAMP');
       params.push(id);
-
-      const sql = `UPDATE documents SET ${updates.join(', ')} WHERE id = ?`;
+      const sql = `UPDATE funds SET ${updates.join(', ')} WHERE id = ?`;
       const stmt = this.db.prepare(sql);
       const result = stmt.run(...params);
 
       if (result.changes > 0) {
-        console.log(`[OK] Document with ID ${id} updated successfully`);
+        console.log(`[OK] Fund with ID ${id} updated successfully`);
       } else {
-        console.log(`[WARN] No document found with ID ${id}`);
+        console.log(`[WARN] No fund found with ID ${id}`);
       }
 
       return result.changes > 0;
     } catch (error) {
-      console.error('[ERROR] Error updating document:', error);
+      console.error('[ERROR] Error updating fund:', error);
       throw error;
     }
   }
 
-  // Get document by ID with embedding
-  getDocumentById(id: number): DocumentWithEmbedding | null {
+  // Get fund as a synthesized document by ID
+  getDocumentById(id: number): Document | null {
     try {
-      const stmt = this.db.prepare(`
-        SELECT 
-          id, 
-          title, 
-          content, 
-          category,
-          tags,
-          embedding,
-          created_at
-        FROM documents 
-        WHERE id = ?
-      `);
+      const r = this.db.prepare(`
+        SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
+               fundSize, targetSize, status, industries, created_at
+        FROM funds WHERE id = ?
+      `).get(id) as any;
+      if (!r) return null;
 
-      const doc = stmt.get(id) as (Document & { embedding?: Buffer | string }) | undefined;
-
-      if (!doc) return null;
-
-      const result: DocumentWithEmbedding = {
-        id: doc.id,
-        title: doc.title,
-        content: doc.content,
-        category: doc.category,
-        tags: doc.tags,
-        created_at: doc.created_at
-      };
-
-      if (doc.embedding) {
-        if (Buffer.isBuffer(doc.embedding)) {
-          const float32Array = new Float32Array(doc.embedding.buffer, doc.embedding.byteOffset, doc.embedding.byteLength / 4);
-          result.embedding = Array.from(float32Array);
-        } else if (typeof doc.embedding === 'string') {
-          result.embedding = JSON.parse(doc.embedding);
-        }
-      }
-
-      return result;
+      const base = this.fundRowToDocument(r);
+      return base;
     } catch (error) {
-      console.error('[ERROR] Error getting document by ID:', error);
+      console.error('[ERROR] Error getting fund by ID:', error);
       throw error;
     }
   }
 
   // Get embedding for a specific document
   getEmbeddingByDocumentId(documentId: number): number[] | null {
-    try {
-      const stmt = this.db.prepare('SELECT embedding FROM documents WHERE id = ?');
-      const result = stmt.get(documentId) as { embedding: Buffer | string } | undefined;
-
-      if (result && result.embedding) {
-        if (Buffer.isBuffer(result.embedding)) {
-          const float32Array = new Float32Array(result.embedding.buffer, result.embedding.byteOffset, result.embedding.byteLength / 4);
-          return Array.from(float32Array);
-        } else if (typeof result.embedding === 'string') {
-          return JSON.parse(result.embedding);
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.error('[ERROR] Error getting embedding:', error);
-      throw error;
-    }
+    // Not used in funds-only schema
+    return null;
   }
 
   // Update embedding for a document
   updateEmbedding(documentId: number, newEmbedding: number[]): boolean {
-    try {
-      const stmt = this.db.prepare(`
-        UPDATE documents 
-        SET embedding = ? 
-        WHERE id = ?
-      `);
-
-      let embeddingData: Buffer | string;
-      if (this.vssAvailable) {
-        const embeddingBuffer = new Float32Array(newEmbedding);
-        embeddingData = Buffer.from(embeddingBuffer.buffer);
-      } else {
-        embeddingData = JSON.stringify(newEmbedding);
-      }
-
-      const result = stmt.run(embeddingData, documentId);
-
-      if (result.changes > 0) {
-        console.log(`[OK] Embedding updated for document ID: ${documentId}`);
-      } else {
-        console.log(`[WARN] No document found with ID: ${documentId}`);
-      }
-
-      return result.changes > 0;
-    } catch (error) {
-      console.error('[ERROR] Error updating embedding:', error);
-      throw error;
-    }
+    console.log('[INFO] updateEmbedding is not supported with funds-only schema');
+    return false;
   }
 
   // Get database statistics
   getStats(): DatabaseStats {
     try {
-      const docCount = this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number };
-      const embeddingCount = this.db.prepare('SELECT COUNT(*) as count FROM documents WHERE embedding IS NOT NULL').get() as { count: number };
-
-      return {
-        documents: docCount.count,
-        embeddings: embeddingCount.count,
-        orphaned_documents: docCount.count - embeddingCount.count
-      };
+      const fundCount = this.db.prepare('SELECT COUNT(*) as count FROM funds').get() as { count: number };
+      return { documents: fundCount.count, embeddings: 0, orphaned_documents: 0 };
     } catch (error) {
       console.error('[ERROR] Error getting stats:', error);
       throw error;
@@ -320,13 +297,10 @@ export class CrudRepository {
       return {
         tables: {
           documents: {
-            columns: ['id', 'title', 'content', 'category', 'tags', 'embedding', 'created_at'],
-            description: 'Main documents table containing titles, content, metadata, and embeddings'
+            columns: ['id', '_id', 'name', 'aliases', 'fundType', 'vintage', 'strategy', 'geography', 'strategyGroup', 'geographyGroup', 'fundSize', 'targetSize', 'status', 'industries', 'created_at'],
+            description: 'Funds table storing raw Mongo fields (aliases, industries as JSON strings)'
           },
-          embeddings: {
-            columns: [],
-            description: 'Deprecated - embeddings now stored directly in documents table'
-          }
+          embeddings: { columns: [], description: 'Not used in funds-only schema' }
         },
         relationships: [],
         indexes: []
@@ -368,75 +342,65 @@ export class CrudRepository {
   // Get documents created within a date range
   getDocumentsByDateRange(startDate: string, endDate: string, limit: number = 50): Document[] {
     try {
-      const query = `
-        SELECT d.id, d.title, d.content, d.created_at
-        FROM documents d
-        WHERE d.created_at BETWEEN ? AND ?
-        ORDER BY d.created_at DESC
+      const rows = this.db.prepare(`
+        SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
+               fundSize, targetSize, status, industries, created_at
+        FROM funds
+        WHERE created_at BETWEEN ? AND ?
+        ORDER BY created_at DESC
         LIMIT ?
-      `;
+      `).all(startDate, endDate, limit) as any[];
 
-      return this.executeQuery(query, [startDate, endDate, limit]);
+      return rows.map(r => this.fundRowToDocument(r));
     } catch (error) {
-      console.error('[ERROR] Error getting documents by date range:', error);
+      console.error('[ERROR] Error getting funds by date range:', error);
       throw error;
     }
   }
 
-  // List distinct categories
-  getAllCategories(): string[] {
+  // List distinct strategies from funds
+  getStrategies(): string[] {
     try {
-      const rows = this.db.prepare("SELECT DISTINCT category as c FROM documents WHERE category IS NOT NULL ORDER BY category ASC").all() as Array<{ c: string }>;
-      return rows.map(r => r.c);
+      const rows = this.db
+        .prepare("SELECT DISTINCT strategy as s FROM funds WHERE strategy IS NOT NULL AND TRIM(strategy) <> '' ORDER BY strategy ASC")
+        .all() as Array<{ s: string }>;
+      return rows.map(r => r.s);
     } catch (error) {
-      console.error('[ERROR] Error getting categories:', error);
+      console.error('[ERROR] Error getting strategies:', error);
       throw error;
     }
   }
 
-  // List distinct tags (split comma-separated, trim, dedupe)
-  getAllTags(): string[] {
+  // List distinct geographies from funds
+  getGeographies(): string[] {
     try {
-      const rows = this.db.prepare("SELECT tags FROM documents WHERE tags IS NOT NULL").all() as Array<{ tags: string }>;
-      const tagSet = new Set<string>();
-      rows.forEach(r => {
-        r.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
-      });
-      return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+      const rows = this.db
+        .prepare("SELECT DISTINCT geography as g FROM funds WHERE geography IS NOT NULL AND TRIM(geography) <> '' ORDER BY geography ASC")
+        .all() as Array<{ g: string }>;
+      return rows.map(r => r.g);
     } catch (error) {
-      console.error('[ERROR] Error getting tags:', error);
+      console.error('[ERROR] Error getting geographies:', error);
       throw error;
     }
   }
 
-  // Get documents by category
-  getDocumentsByCategory(category: string): Document[] {
-    try {
-      const stmt = this.db.prepare(
-        'SELECT id, title, content, category, tags, created_at FROM documents WHERE category = ? ORDER BY created_at DESC'
-      );
-      return stmt.all(category) as Document[];
-    } catch (error) {
-      console.error('[ERROR] Error getting documents by category:', error);
-      throw error;
-    }
-  }
+  
 
   // Get documents with existing embeddings, most recent first (by document timestamp)
   getRecentlyEmbedded(limit: number = 10): Array<Document & { embedding_created: string }> {
     try {
-      const query = `
-        SELECT d.id, d.title, d.content, d.category, d.tags, d.created_at
-        FROM documents d
-        WHERE d.embedding IS NOT NULL
-        ORDER BY d.created_at DESC
+      const rows = this.db.prepare(`
+        SELECT id, name as title, created_at, aliases, industries, fundType, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, vintage
+        FROM funds
+        ORDER BY created_at DESC
         LIMIT ?
-      `;
-
-      const rows = this.executeQuery(query, [limit]) as Array<Document>;
-      return rows.map(r => ({ ...r, embedding_created: r.created_at }));
+      `).all(limit) as any[];
+      return rows.map(r => {
+        const doc = this.fundRowToDocument({ ...r, name: r.title });
+        return { ...doc, embedding_created: doc.created_at } as any;
+      });
     } catch (error) {
-      console.error('[ERROR] Error getting recently embedded documents:', error);
+      console.error('[ERROR] Error getting recent funds:', error);
       throw error;
     }
   }

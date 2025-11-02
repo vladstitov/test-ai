@@ -193,10 +193,10 @@ IMPORTANT INSTRUCTIONS:
 - Be conversational and friendly
 
 SPECIAL DATABASE CAPABILITIES:
-- When users ask about "categories", "what categories do you have", "list categories", etc., you should respond with: "I can show you the available categories. Let me retrieve them from the database."
-- When users ask about "tags", "what tags do you have", "list tags", "get all tags", etc., you should respond with the available tags from the database.
-- When users ask for documents from a specific category (like "Cloud documents", "AI/ML papers", etc.), search for those specifically
-- You have access to categorized documents with metadata including categories and tags
+- When users ask about "strategies", "what strategies do you have", "list strategies", etc., you should respond with the available strategies from the database.
+- When users ask about "geographies", "what geographies do you have", "list geographies", etc., you should respond with the available geographies from the database.
+- When users ask for documents tied to a specific strategy or geography, search for those specifically where applicable.
+- You have access to documents with metadata including strategy and geography fields
 
 You are running completely offline with no internet access.`
     });
@@ -239,18 +239,18 @@ You are running completely offline with no internet access.`
       // Step 5: Prepare context for LLM
       const context = this.prepareContext(allResults);
       
-      // Step 6: Classify intent (categories/tags/other) via LLM before enrichment
+      // Step 6: Classify intent (strategies/geographies/other) via LLM before enrichment
       let enhancedContext = context;
       try {
         const intent = await (this as any).classifyIntent(userMessage);
-        if (intent === 'categories') {
-          const categories = this.crudRepo.getAllCategories();
-          const categoryInfo = `\nAVAILABLE CATEGORIES IN DATABASE:\n${categories.map((cat: string, i: number) => `${i + 1}. ${cat}`).join('\n')}\n\nTotal categories: ${categories.length}\n`;
-          enhancedContext = categoryInfo + '\n' + context;
-        } else if (intent === 'tags') {
-          const tags = this.crudRepo.getAllTags();
-          const tagInfo = `\nAVAILABLE TAGS IN DATABASE:\n${tags.join(', ')}\n\nTotal tags: ${tags.length}\n`;
-          enhancedContext = tagInfo + '\n' + enhancedContext;
+        if (intent === 'strategies') {
+          const strategies = this.crudRepo.getStrategies();
+          const info = `\nAVAILABLE STRATEGIES IN DATABASE:\n${strategies.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}\n\nTotal strategies: ${strategies.length}\n`;
+          enhancedContext = info + '\n' + context;
+        } else if (intent === 'geographies') {
+          const geos = this.crudRepo.getGeographies();
+          const info = `\nAVAILABLE GEOGRAPHIES IN DATABASE:\n${geos.join(', ')}` + `\n\nTotal geographies: ${geos.length}\n`;
+          enhancedContext = info + '\n' + enhancedContext;
         }
       } catch {}
       
@@ -467,12 +467,12 @@ Relevance Score: ${doc.similarity?.toFixed(3) || 'N/A'}
 (OfflineDatabaseChatService as any).classifyIntent = async function (
   this: any,
   message: string
-): Promise<'categories' | 'tags' | 'other'> {
+): Promise<'strategies' | 'geographies' | 'other'> {
   try {
     const sys = [
       'You are a precise intent classifier.',
-      'Decide if the user asks specifically about listing categories or tags.',
-      'Respond with one word only: categories, tags, or other.'
+      'Decide if the user asks specifically about listing strategies or geographies.',
+      'Respond with one word only: strategies, geographies, or other.'
     ].join('\n');
 
     const response = await this.ollama.chat({
@@ -485,13 +485,13 @@ Relevance Score: ${doc.similarity?.toFixed(3) || 'N/A'}
     });
 
     const text = (response?.message?.content || '').trim().toLowerCase();
-    if (text.includes('categories')) return 'categories';
-    if (text.includes('tags')) return 'tags';
+    if (text.includes('strateg')) return 'strategies';
+    if (text.includes('geograph')) return 'geographies';
     return 'other';
   } catch {
     const lower = String(message || '').toLowerCase();
-    if (/\bcategories?\b/.test(lower)) return 'categories';
-    if (/\btags?\b/.test(lower)) return 'tags';
+    if (/\bstrateg(y|ies)\b/.test(lower) || lower.includes('strategy') || lower.includes('strategies')) return 'strategies';
+    if (/\bgeograph(y|ies)\b/.test(lower) || lower.includes('geography') || lower.includes('geographies')) return 'geographies';
     return 'other';
   }
 };
