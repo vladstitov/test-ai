@@ -72,9 +72,9 @@ async function checkOllamaSetup() {
         }
     }
     catch (error) {
-        instructions.push('ðŸ“± Download Ollama from: https://ollama.ai');
-        instructions.push('ðŸš€ Start Ollama: ollama serve');
-        instructions.push('ðŸ“¥ Install models:');
+        instructions.push(' Download Ollama from: https://ollama.ai');
+        instructions.push('Start Ollama: ollama serve');
+        instructions.push(' Install models:');
         instructions.push('   ollama pull gemma3:4b');
         instructions.push('   ollama pull nomic-embed-text');
     }
