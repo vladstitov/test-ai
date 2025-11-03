@@ -42,7 +42,7 @@ async function runTests() {
         if (similarDocs.length > 0) {
             console.log(`[OK] PASSED - Found ${similarDocs.length} similar document(s) for: "${queryText}"`);
             similarDocs.forEach((doc, index) => {
-                console.log(`   ${index + 1}. "${doc.title}" (Similarity: ${doc.similarity.toFixed(4)})`);
+                console.log(`   ${index + 1}. "${doc.name ?? ''}" (Similarity: ${doc.similarity.toFixed(4)})`);
             });
             console.log();
         }
@@ -55,7 +55,7 @@ async function runTests() {
         if (textResults.length > 0) {
             console.log(`[OK] PASSED - Found ${textResults.length} documents with text search`);
             textResults.forEach((doc, index) => {
-                console.log(`   ${index + 1}. "${doc.title}"`);
+                console.log(`   ${index + 1}. "${doc.name}"`);
             });
             console.log();
         }
@@ -67,7 +67,7 @@ async function runTests() {
         const enhancedSearch = searchRepo.searchSimilar(queryEmbedding, 5);
         console.log(`[OK] PASSED - Found ${enhancedSearch.length} documents:`);
         enhancedSearch.forEach((doc, index) => {
-            console.log(`   ${index + 1}. "${doc.title}" (Similarity: ${doc.similarity.toFixed(4)})`);
+            console.log(`   ${index + 1}. "${doc.name ?? ''}" (Similarity: ${doc.similarity.toFixed(4)})`);
         });
         console.log();
         // Test 6: Database Statistics
@@ -82,7 +82,7 @@ async function runTests() {
         const hybridResults = searchRepo.hybridSearch('machine learning', queryEmbedding, 0.3, 0.7, 5);
         console.log(`[OK] PASSED - Found ${hybridResults.length} hybrid search results:`);
         hybridResults.forEach((doc, index) => {
-            console.log(` ${index + 1}. "${doc.title}" (Total: ${doc.totalScore.toFixed(4)})`);
+            console.log(` ${index + 1}. "${doc.name ?? ''}" (Total: ${doc.totalScore.toFixed(4)})`);
         });
         console.log();
         console.log('[OK] All tests completed!');

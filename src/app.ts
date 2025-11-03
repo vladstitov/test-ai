@@ -1,4 +1,4 @@
-import { connectDB } from './create-db';
+import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { EmbeddingsService } from './embeddings.service';
 
@@ -8,7 +8,7 @@ async function main(): Promise<void> {
 
   try {
     // Connect to the persistent database
-    const dbInstance = connectDB(); // Always uses database.db
+    const dbInstance = connectDB(); // Uses database.db
 
     // Create embeddings service
     const embeddingsService = new EmbeddingsService('nomic-embed-text');
@@ -17,21 +17,15 @@ async function main(): Promise<void> {
     const db = new CrudRepository(dbInstance, embeddingsService);
 
     console.log('\n[INFO] Database is ready! You can now:');
-    console.log('   - Insert documents');
-    console.log('   - Search for similar documents');
-    console.log('   - Perform vector operations');
-
-    // Example: Insert a document (embedding generated automatically)
-    const docId = await db.insertDocument(
-      'Sample Document',
-      'This is a test document'
-    );
-
-    console.log(`[OK] Inserted document with ID: ${docId}`);
+    console.log('   - Load funds via load-real-data.ts');
+    console.log('   - List funds and run text search');
 
     // Get all documents
     const docs = db.getAllDocuments();
-    console.log(`\n[INFO] Documents in database: ${docs.length}`);
+    console.log(`\n[INFO] Funds in database: ${docs.length}`);
+    if (docs.length > 0) {
+      console.log(`   Latest fund: "${docs[0].title}"`);
+    }
 
     // Database connection managed by the dbInstance
     console.log('[OK] Application completed successfully');
@@ -45,4 +39,3 @@ async function main(): Promise<void> {
 if (require.main === module) {
   main().catch(console.error);
 }
-

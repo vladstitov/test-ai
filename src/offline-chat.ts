@@ -501,7 +501,7 @@ Relevance Score: ${doc.similarity?.toFixed(3) || 'N/A'}
 // ========================================
 
 export async function startOfflineDatabaseChat(): Promise<void> {
-  const { connectDB } = await import('./create-db');
+  const { connectDB } = await import('./sqlite-connector');
   
   try {
     console.log('[INFO] Checking Ollama setup...\\n');

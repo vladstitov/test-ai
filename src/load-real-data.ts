@@ -1,116 +1,81 @@
-import Database from 'better-sqlite3';
+import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { getFunds /*, getPrices*/ } from './mongo-connector';
 import { EmbeddingsService } from './embeddings.service';
 import type { IOFundModel } from './fund.types';
 
 interface LoadOptions {
-  offset?: number;
-  limit?: number;
-  pageSize?: number;
-  maxBatches?: number;
+  offset: number; 
+  limit: number
+  maxBatches: number;
   dryRun?: boolean;
 }
 
-export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions = {}): Promise<{ inserted: number; fetched: number; batches: number; }> {
-  const pageSize = Math.max(1, Number(opts.pageSize ?? 100));
-  let offset = Math.max(0, Number(opts.offset ?? 0));
-  const maxBatches = Number.isFinite(Number(opts.maxBatches)) ? Number(opts.maxBatches) : Infinity;
-  const dryRun = !!opts.dryRun;
-
-  let totalInserted = 0;
-  let totalFetched = 0;
+export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{ inserted: number;  batches: number; }> {
+  
   let batches = 0;
+  let offset = 0
+  let totalInserted = 0
 
   // If a global limit is provided, cap the total we fetch
   const totalLimit = Number.isFinite(Number(opts.limit)) ? Number(opts.limit) : Infinity;
 
-  console.log(`[INFO] Loading funds from MongoDB in pages of ${pageSize} (dryRun=${dryRun})`);
+  console.log(`[INFO] Loading funds from MongoDB `);
 
-  while (batches < maxBatches && totalFetched < totalLimit) {
-    const remaining = isFinite(totalLimit) ? Math.max(0, totalLimit - totalFetched) : pageSize;
-    const thisPage = Math.min(pageSize, remaining || pageSize);
-    const docs = await getFunds(offset, thisPage);
+
+  while (batches < opts.maxBatches ) {
+    console.log('offset' + offset)
+   
+    const docs = await getFunds(offset, opts.limit);
     const count = docs.length;
-    if (count === 0) break;
-    totalFetched += count;
+    if (count === 0) break;   
     batches++;
 
     for (const f of docs as IOFundModel[]) {
       try {
-        if (dryRun) {
-          const summary = [
-            `name=${f.name ?? '-'}`,
-            `fundType=${f.fundType ?? '-'}`,
-            `status=${f.status ?? '-'}`,
-            `vintage=${f.vintage ?? '-'}`
-          ].join(' | ');
-          console.log(`[DRY] ${String(f._id)} | ${summary}`);
-          continue;
-        }
-        dbRepo.insertFund(f);
-        totalInserted++;
-        if (totalInserted % 10 === 0) {
-          console.log(`   Inserted ${totalInserted} documents so far...`);
-        }
+        const id = dbRepo.insertFund(f);
+        // Generate and store embedding per fund (best-effort)
+        await dbRepo.generateAndStoreFundEmbeddingById(id);
+        totalInserted ++;
+       
+        console.log(`   Inserted ${totalInserted} documents so far...`);
+        
       } catch (err) {
         const name = (f && (f.name || f._id)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
         console.error(`[ERROR] Failed to insert fund ${name}:`, (err as Error).message);
       }
     }
 
-    offset += count;
+    offset += opts.limit;
   }
 
-  console.log(`[OK] Funds load complete: fetched=${totalFetched}, inserted=${totalInserted}, batches=${batches}`);
-  return { inserted: totalInserted, fetched: totalFetched, batches };
+ 
+  return { inserted: totalInserted,  batches };
 }
 
 // Optional CLI entrypoint for convenience
 async function main(): Promise<void> {
-  // Local SQLite connection (no external init module)
-  const db = new Database('database.db');
-  // Ensure 'funds' table exists
-  const fundsTableExists = db.prepare(`
-    SELECT name FROM sqlite_master
-    WHERE type='table' AND name='funds'
-  `).get();
-  if (!fundsTableExists) {
-    console.log('[INFO] Creating funds table...');
-    db.exec(`
-      CREATE TABLE funds (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        _id TEXT UNIQUE,
-        name TEXT,
-        aliases TEXT,
-        fundType TEXT,
-        vintage INTEGER,
-        strategy TEXT,
-        geography TEXT,
-        strategyGroup TEXT,
-        geographyGroup TEXT,
-        fundSize REAL,
-        targetSize REAL,
-        status TEXT,
-        industries TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_funds__id ON funds(_id);
-    `);
-    console.log('[OK] Funds table created');
+  // Get SQLite connection via connector (loads sqlite-vec if available, ensures funds table)
+  const db = connectDB();
+  // Clear existing data from funds before loading
+  try {
+    console.log('[WARN] Clearing existing records from funds table...');
+    db.exec('DELETE FROM funds;');
+    // Optional: reset AUTOINCREMENT sequence
+    try { db.exec("DELETE FROM sqlite_sequence WHERE name='funds';"); } catch {}
+    console.log('[OK] Funds table cleared');
+  } catch (e) {
+    console.error('[ERROR] Failed to clear funds table:', (e as Error).message);
+    throw e;
   }
   const embeddings = new EmbeddingsService('nomic-embed-text');
   const repo = new CrudRepository(db, embeddings);
 
-  const pageSize: number = Number(process.env.PAGE_SIZE ?? 100);
-  const offset: number = Number(process.env.OFFSET ?? 0);
-  const limitEnv = process.env.LIMIT;
-  const limit: number | undefined = limitEnv !== undefined ? Number(limitEnv) : undefined;
-  const maxBatchesEnv = process.env.MAX_BATCHES;
-  const maxBatches: number | undefined = maxBatchesEnv !== undefined ? Number(maxBatchesEnv) : undefined;
-  const dryRun: boolean = String(process.env.DRY_RUN || '').toLowerCase() === 'true';
 
-  await insertFundsFromMongo(repo, { pageSize, offset, limit, maxBatches, dryRun });
+  const limit: number = 10;
+   
+
+  await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 1, dryRun: false });
 
   const stats = repo.getStats();
   console.log('[INFO] Database Stats after import:');

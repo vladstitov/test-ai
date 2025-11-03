@@ -1,14 +1,12 @@
 import { CrudRepository } from './crud.repo';
 interface LoadOptions {
-    offset?: number;
-    limit?: number;
-    pageSize?: number;
-    maxBatches?: number;
+    offset: number;
+    limit: number;
+    maxBatches: number;
     dryRun?: boolean;
 }
-export declare function insertFundsFromMongo(dbRepo: CrudRepository, opts?: LoadOptions): Promise<{
+export declare function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{
     inserted: number;
-    fetched: number;
     batches: number;
 }>;
 export {};

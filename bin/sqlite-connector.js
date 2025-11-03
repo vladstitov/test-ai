@@ -46,13 +46,18 @@ const sqliteVec = __importStar(require("sqlite-vec"));
 function connectDB(dbPath = 'database.db') {
     console.log(`[INFO] Connecting to SQLite database: ${dbPath}`);
     const db = new better_sqlite3_1.default(dbPath);
-    // Try loading sqlite-vec extension if available
+    // Try loading sqlite-vec extension if available and verify
+    let vssAvailable = false;
     try {
         sqliteVec.load(db);
-        console.log('[OK] sqlite-vec extension loaded');
+        const row = db.prepare("SELECT vec_version() as v").get();
+        vssAvailable = !!row?.v;
+        console.log(`[OK] sqlite-vec extension loaded${row?.v ? ` (v=${row.v})` : ''}`);
     }
-    catch {
+    catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
         console.log('[INFO] sqlite-vec extension not available; continuing without it');
+        console.log(`[INFO] Reason: ${msg}`);
     }
     // Basic PRAGMAs
     try {
@@ -84,6 +89,7 @@ function connectDB(dbPath = 'database.db') {
         targetSize REAL,
         status TEXT,
         industries TEXT,
+        embedding ${vssAvailable ? 'BLOB' : 'TEXT'},
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_funds__id ON funds(_id);
@@ -92,6 +98,19 @@ function connectDB(dbPath = 'database.db') {
     }
     else {
         console.log('[OK] Funds table present');
+        // Ensure 'embedding' column exists; add it if missing
+        try {
+            const cols = db.prepare("PRAGMA table_info(funds)").all();
+            const hasEmbedding = cols.some(c => c.name.toLowerCase() === 'embedding');
+            if (!hasEmbedding) {
+                console.log(`[INFO] Adding 'embedding' column to funds table as ${vssAvailable ? 'BLOB' : 'TEXT'}...`);
+                db.exec(`ALTER TABLE funds ADD COLUMN embedding ${vssAvailable ? 'BLOB' : 'TEXT'};`);
+                console.log('[OK] Column added');
+            }
+        }
+        catch (err) {
+            console.log('[WARN] Could not verify/add embedding column on funds:', err.message);
+        }
     }
     return db;
 }

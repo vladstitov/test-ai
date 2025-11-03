@@ -85,6 +85,49 @@ class CrudRepository {
     getEmbeddingsService() {
         return this.embeddingsService;
     }
+    // Generate embedding for a fund row and persist it to funds.embedding
+    async generateAndStoreFundEmbeddingById(id) {
+        try {
+            const r = this.db.prepare(`
+        SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
+               fundSize, targetSize, status, industries
+        FROM funds WHERE id = ?
+      `).get(id);
+            if (!r)
+                return false;
+            const title = r.name ?? String(r._id);
+            const content = this.buildFundContent({
+                name: r.name,
+                aliases: r.aliases,
+                fundType: r.fundType,
+                vintage: r.vintage,
+                strategy: r.strategy,
+                geography: r.geography,
+                strategyGroup: r.strategyGroup,
+                geographyGroup: r.geographyGroup,
+                fundSize: r.fundSize,
+                targetSize: r.targetSize,
+                status: r.status,
+                industries: r.industries,
+            });
+            const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content);
+            if (!Array.isArray(embedding) || embedding.length === 0)
+                return false;
+            const stmt = this.db.prepare('UPDATE funds SET embedding = ? WHERE id = ?');
+            if (this.vssAvailable) {
+                const blob = Buffer.from(new Float32Array(embedding).buffer);
+                stmt.run(blob, id);
+            }
+            else {
+                stmt.run(JSON.stringify(embedding), id);
+            }
+            return true;
+        }
+        catch (error) {
+            console.warn('[WARN] Failed to generate/store embedding for fund:', error.message);
+            return false;
+        }
+    }
     // Insert a fund: persists raw fields to funds only
     insertFund(fund) {
         try {
@@ -242,7 +285,8 @@ class CrudRepository {
     getStats() {
         try {
             const fundCount = this.db.prepare('SELECT COUNT(*) as count FROM funds').get();
-            return { documents: fundCount.count, embeddings: 0, orphaned_documents: 0 };
+            const embCount = this.db.prepare('SELECT COUNT(*) as count FROM funds WHERE embedding IS NOT NULL').get();
+            return { documents: fundCount.count, embeddings: embCount.count, orphaned_documents: 0 };
         }
         catch (error) {
             console.error('[ERROR] Error getting stats:', error);

@@ -36,6 +36,7 @@ export declare class CrudRepository {
     private fundRowToDocument;
     generateQueryEmbedding(text: string): Promise<number[]>;
     getEmbeddingsService(): EmbeddingsService;
+    generateAndStoreFundEmbeddingById(id: number): Promise<boolean>;
     insertFund(fund: IOFundModel): number;
     getAllDocuments(): Document[];
     deleteDocument(id: number): boolean;

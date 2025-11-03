@@ -434,7 +434,7 @@ OfflineDatabaseChatService.classifyIntent = async function (message) {
 // USAGE EXAMPLE
 // ========================================
 async function startOfflineDatabaseChat() {
-    const { connectDB } = await Promise.resolve().then(() => __importStar(require('./create-db')));
+    const { connectDB } = await Promise.resolve().then(() => __importStar(require('./sqlite-connector')));
     try {
         console.log('[INFO] Checking Ollama setup...\\n');
         // Check Ollama setup first
