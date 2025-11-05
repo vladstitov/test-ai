@@ -116,6 +116,7 @@ class CrudRepository {
             const stmt = this.db.prepare('UPDATE funds SET embedding = ? WHERE id = ?');
             if (this.vssAvailable) {
                 const blob = Buffer.from(new Float32Array(embedding).buffer);
+                console.log('Inserting BLOB embedding ' + blob.length);
                 stmt.run(blob, id);
             }
             else {

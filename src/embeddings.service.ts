@@ -15,15 +15,21 @@ export class EmbeddingsService {
 
   // Generate embedding using Ollama
   async generateEmbedding(text: string): Promise<number[]> {
+
+    if(text.length > 4000) {
+      console.log(' Catting text to 4000');
+      text = text.trim().substring(0, 4000);
+    }
     try {
-      console.log(`🔮 Generating embedding for text using model: ${this.embeddingModel}`);
+      console.log(text);
+      console.log(` Generating embedding for text using model: ${text.length}`);
       
       const response = await this.ollama.embeddings({
         model: this.embeddingModel,
-        prompt: text.trim().substring(0, 4000)
+        prompt: text
       });
       
-      console.log(`✅ Embedding generated successfully (${response.embedding.length} dimensions)`);
+      console.log(`Embedding generated successfully (${response.embedding.length} dimensions)`);
       return response.embedding;
     } catch (error) {
       console.error('❌ Error generating embedding with Ollama:', error);
