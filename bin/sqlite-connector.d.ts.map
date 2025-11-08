@@ -1,1 +1,1 @@
-{"version":3,"file":"sqlite-connector.d.ts","sourceRoot":"","sources":["../src/sqlite-connector.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,MAAM,gBAAgB,CAAC;AAQtC,wBAAgB,SAAS,CAAC,MAAM,GAAE,MAAsB,GAAG,QAAQ,CAAC,QAAQ,CAyE3E"}
+{"version":3,"file":"sqlite-connector.d.ts","sourceRoot":"","sources":["../src/sqlite-connector.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,MAAM,gBAAgB,CAAC;AAQtC,wBAAsB,SAAS,CAAC,MAAM,GAAE,MAAsB,GAAG,OAAO,CAAC,QAAQ,CAAC,QAAQ,CAAC,CA+G1F"}

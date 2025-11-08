@@ -1,4 +1,4 @@
-﻿// ========================================
+// ========================================
 // OFFLINE LLM CHAT SERVICE USING OLLAMA
 // ========================================
 
@@ -6,6 +6,7 @@ import { Ollama } from 'ollama';
 import { CrudRepository } from './crud.repo';
 import { SearchRepository } from './search.repo';
 import { EmbeddingsService } from './embeddings.service';
+import { getOllama } from './ollama-singleton';
 
 // ========================================
 // OLLAMA CLIENT INTERFACE
@@ -44,7 +45,7 @@ export async function checkOllamaSetup(): Promise<{
 
   try {
     // Check if Ollama is running
-    const ollama = new Ollama({ host: 'http://localhost:11434' });
+    const ollama = getOllama();
     const response = await ollama.list();
     
     installed = true;
@@ -64,7 +65,7 @@ export async function checkOllamaSetup(): Promise<{
     }
     
     if (modelsAvailable) {
-      instructions.push('âœ… Ollama is ready to use!');
+      instructions.push('✅ Ollama is ready to use!');
     }
     
   } catch (error) {
@@ -92,7 +93,7 @@ export class OfflineEmbeddingService {
   private embeddingModel: string;
 
   constructor(ollamaUrl: string = 'http://localhost:11434', embeddingModel: string = 'nomic-embed-text') {
-    this.ollama = new Ollama({ host: ollamaUrl });
+    this.ollama = getOllama();
     this.embeddingModel = embeddingModel;
   }
 
@@ -106,7 +107,7 @@ export class OfflineEmbeddingService {
 
       return response.embedding;
     } catch (error) {
-      console.error('âŒ Error generating offline embedding:', error);
+      console.error('❌ Error generating offline embedding:', error);
       throw error;
     }
   }
@@ -135,14 +136,14 @@ export class OfflineEmbeddingService {
   // Install embedding model if not available
   async installEmbeddingModel(): Promise<boolean> {
     try {
-      console.log(`ðŸ“¥ Installing embedding model: ${this.embeddingModel}`);
+      console.log(`📥 Installing embedding model: ${this.embeddingModel}`);
       
       await this.ollama.pull({ model: this.embeddingModel });
 
-      console.log(`âœ… Successfully installed ${this.embeddingModel}`);
+      console.log(`✅ Successfully installed ${this.embeddingModel}`);
       return true;
     } catch (error) {
-      console.error('âŒ Failed to install embedding model:', error);
+      console.error('❌ Failed to install embedding model:', error);
       return false;
     }
   }
@@ -174,7 +175,7 @@ export class OfflineDatabaseChatService {
     ollamaUrl: string = 'http://localhost:11434',
     chatModel: string = 'gemma3:4b' // Default chat model
   ) {
-    this.ollama = new Ollama({ host: ollamaUrl });
+    this.ollama = getOllama();
     this.chatModel = chatModel;
     this.embeddingService = new OfflineEmbeddingService(ollamaUrl);
     this.searchRepo = searchRepo;
@@ -207,7 +208,7 @@ You are running completely offline with no internet access.`
     const startTime = Date.now();
     
     try {
-      console.log(`ðŸ’¬ User: ${userMessage}`);
+      console.log(`💬 User: ${userMessage}`);
       
       // Add user message to history
       this.conversationHistory.push({
@@ -222,7 +223,7 @@ You are running completely offline with no internet access.`
       // Removed special-case Cloud category branch; rely on general handling
 
       // Step 1: Generate embedding for the user's question (offline)
-      console.log('ðŸ” Searching database with offline embeddings...');
+      console.log('🔍 Searching database with offline embeddings...');
       const queryEmbedding = await this.embeddingService.generateEmbedding(userMessage);
       
       // Step 2: Search for relevant documents
@@ -234,7 +235,7 @@ You are running completely offline with no internet access.`
       // Step 4: Combine and deduplicate results
       const allResults = this.combineSearchResults(searchResults, textResults);
       
-      console.log(`ðŸ“Š Found ${allResults.length} relevant documents`);
+      console.log(`📊 Found ${allResults.length} relevant documents`);
 
       // Step 5: Prepare context for LLM
       const context = this.prepareContext(allResults);
@@ -277,7 +278,7 @@ You are running completely offline with no internet access.`
       };
 
     } catch (error) {
-      console.error('âŒ Offline chat error:', error);
+      console.error('❌ Offline chat error:', error);
       throw error;
     }
   }
@@ -329,7 +330,7 @@ Answer:`;
         message: response.response || 'I apologize, but I was unable to generate a response.'
       };
     } catch (error) {
-      console.error('âŒ Ollama generation error:', error);
+      console.error('❌ Ollama generation error:', error);
       return {
         message: 'I apologize, but I encountered an error generating a response. Please make sure Ollama is running and the model is installed.'
       };
@@ -364,7 +365,7 @@ Answer:`;
   // Install required models
   async installModels(): Promise<boolean> {
     try {
-      console.log('ðŸ“¥ Installing required models for offline chat...');
+      console.log('📥 Installing required models for offline chat...');
       
       // Install chat model
       console.log(`Installing chat model: ${this.chatModel}`);
@@ -373,10 +374,10 @@ Answer:`;
       // Install embedding model
       await this.embeddingService.installEmbeddingModel();
       
-      console.log('âœ… All models installed successfully!');
+      console.log('✅ All models installed successfully!');
       return true;
     } catch (error) {
-      console.error('âŒ Failed to install models:', error);
+      console.error('❌ Failed to install models:', error);
       return false;
     }
   }
@@ -387,7 +388,7 @@ Answer:`;
       const models = await this.ollama.list();
       return models.models?.map((model: any) => model.name) || [];
     } catch (error) {
-      console.error('âŒ Failed to list models:', error);
+      console.error('❌ Failed to list models:', error);
       return [];
     }
   }
@@ -396,7 +397,7 @@ Answer:`;
   switchModel(newModel: string): void {
     this.chatModel = newModel;
     this.context = []; // Reset context when switching models
-    console.log(`ðŸ”„ Switched to model: ${newModel}`);
+    console.log(`🔄 Switched to model: ${newModel}`);
   }
 
   // Prepare context from search results for LLM
@@ -515,7 +516,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
       setup.instructions.forEach(instruction => {
         console.log(`   ${instruction}`);
       });
-      console.log('\n[INFO] Ollama is NOT a web server — it\'s a desktop app that runs locally!');
+      console.log('\n[INFO] Ollama is NOT a web server � it\'s a desktop app that runs locally!');
       console.log('[INFO] Once you start "ollama serve", it runs at http://localhost:11434');
       return;
     }
@@ -529,13 +530,13 @@ export async function startOfflineDatabaseChat(): Promise<void> {
       return;
     }
     
-    console.log('âœ… Ollama setup is complete!\n');
+    console.log('✅ Ollama setup is complete!\n');
 
     // Initialize database and repositories
-    const dbInstance = connectDB();
+    const dbInstance = await connectDB();
     
     // Create embeddings service
-    const embeddingsService = new EmbeddingsService('nomic-embed-text');
+    const embeddingsService = new EmbeddingsService();
     
     // Create repositories
     const crudRepo = new CrudRepository(dbInstance, embeddingsService);
@@ -544,7 +545,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
     // Check if database has documents
     const stats = crudRepo.getStats();
     if (stats.documents === 0) {
-      console.log('âš ï¸ Database is empty. Please add some documents first.');
+      console.log('⚠️ Database is empty. Please add some documents first.');
 
       return;
     }
@@ -563,7 +564,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
     await chatInterface.start();
     
   } catch (error) {
-    console.error('âŒ Failed to start offline chat:', error);
+    console.error('❌ Failed to start offline chat:', error);
   }
 }
 
@@ -571,6 +572,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
 if (require.main === module) {
   startOfflineDatabaseChat().catch(console.error);
 }
+
 
 
 

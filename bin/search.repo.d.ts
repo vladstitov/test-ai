@@ -3,7 +3,7 @@ import type { IOFundModel } from './fund.types';
 export interface FundWithSimilarity extends IOFundModel {
     similarity: number;
     distance: number;
-    created_at: string;
+    createdAt: string;
 }
 export interface SearchFilters {
     startDate?: string;
@@ -22,7 +22,7 @@ export declare class SearchRepository {
     private parseJsonList;
     searchByText(searchTerm: string, limit?: number): IOFundModel[];
     searchByTextAdvanced(searchTerms: string[], operator?: 'AND' | 'OR', limit?: number): IOFundModel[];
-    searchSimilar(_queryEmbedding: number[], _limit?: number): FundWithSimilarity[];
+    searchSimilar(queryEmbedding: number[], limit?: number): FundWithSimilarity[];
     hybridSearch(query: string, _queryEmbedding: number[], textWeight?: number, semanticWeight?: number, limit?: number): HybridSearchResult[];
     searchWithClustering(_queryEmbedding: number[], _limit?: number, _similarityThreshold?: number): Array<{
         cluster: number;

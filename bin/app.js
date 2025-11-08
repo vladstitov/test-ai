@@ -8,9 +8,9 @@ async function main() {
     console.log('[INFO] Starting application...\n');
     try {
         // Connect to the persistent database
-        const dbInstance = (0, sqlite_connector_1.connectDB)(); // Uses database.db
+        const dbInstance = await (0, sqlite_connector_1.connectDB)(); // Uses database.db
         // Create embeddings service
-        const embeddingsService = new embeddings_service_1.EmbeddingsService('nomic-embed-text');
+        const embeddingsService = new embeddings_service_1.EmbeddingsService();
         // Create CRUD repository with embeddings service
         const db = new crud_repo_1.CrudRepository(dbInstance, embeddingsService);
         console.log('\n[INFO] Database is ready! You can now:');

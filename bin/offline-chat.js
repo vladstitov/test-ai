@@ -39,10 +39,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OfflineDatabaseChatService = exports.OfflineEmbeddingService = void 0;
 exports.checkOllamaSetup = checkOllamaSetup;
 exports.startOfflineDatabaseChat = startOfflineDatabaseChat;
-const ollama_1 = require("ollama");
 const crud_repo_1 = require("./crud.repo");
 const search_repo_1 = require("./search.repo");
 const embeddings_service_1 = require("./embeddings.service");
+const ollama_singleton_1 = require("./ollama-singleton");
 // ========================================
 // OLLAMA SETUP CHECKER
 // ========================================
@@ -53,7 +53,7 @@ async function checkOllamaSetup() {
     let modelsAvailable = false;
     try {
         // Check if Ollama is running
-        const ollama = new ollama_1.Ollama({ host: 'http://localhost:11434' });
+        const ollama = (0, ollama_singleton_1.getOllama)();
         const response = await ollama.list();
         installed = true;
         running = true;
@@ -68,7 +68,7 @@ async function checkOllamaSetup() {
             instructions.push('Install embedding model: ollama pull nomic-embed-text');
         }
         if (modelsAvailable) {
-            instructions.push('âœ… Ollama is ready to use!');
+            instructions.push('✅ Ollama is ready to use!');
         }
     }
     catch (error) {
@@ -90,7 +90,7 @@ async function checkOllamaSetup() {
 // ========================================
 class OfflineEmbeddingService {
     constructor(ollamaUrl = 'http://localhost:11434', embeddingModel = 'nomic-embed-text') {
-        this.ollama = new ollama_1.Ollama({ host: ollamaUrl });
+        this.ollama = (0, ollama_singleton_1.getOllama)();
         this.embeddingModel = embeddingModel;
     }
     // Generate embeddings using Ollama's embedding models
@@ -103,7 +103,7 @@ class OfflineEmbeddingService {
             return response.embedding;
         }
         catch (error) {
-            console.error('âŒ Error generating offline embedding:', error);
+            console.error('❌ Error generating offline embedding:', error);
             throw error;
         }
     }
@@ -126,13 +126,13 @@ class OfflineEmbeddingService {
     // Install embedding model if not available
     async installEmbeddingModel() {
         try {
-            console.log(`ðŸ“¥ Installing embedding model: ${this.embeddingModel}`);
+            console.log(`📥 Installing embedding model: ${this.embeddingModel}`);
             await this.ollama.pull({ model: this.embeddingModel });
-            console.log(`âœ… Successfully installed ${this.embeddingModel}`);
+            console.log(`✅ Successfully installed ${this.embeddingModel}`);
             return true;
         }
         catch (error) {
-            console.error('âŒ Failed to install embedding model:', error);
+            console.error('❌ Failed to install embedding model:', error);
             return false;
         }
     }
@@ -152,7 +152,7 @@ class OfflineDatabaseChatService {
     ) {
         this.conversationHistory = [];
         this.context = []; // For maintaining conversation context
-        this.ollama = new ollama_1.Ollama({ host: ollamaUrl });
+        this.ollama = (0, ollama_singleton_1.getOllama)();
         this.chatModel = chatModel;
         this.embeddingService = new OfflineEmbeddingService(ollamaUrl);
         this.searchRepo = searchRepo;
@@ -182,7 +182,7 @@ You are running completely offline with no internet access.`
     async chat(userMessage) {
         const startTime = Date.now();
         try {
-            console.log(`ðŸ’¬ User: ${userMessage}`);
+            console.log(`💬 User: ${userMessage}`);
             // Add user message to history
             this.conversationHistory.push({
                 role: 'user',
@@ -193,7 +193,7 @@ You are running completely offline with no internet access.`
             const lowerMessage = userMessage.toLowerCase();
             // Removed special-case Cloud category branch; rely on general handling
             // Step 1: Generate embedding for the user's question (offline)
-            console.log('ðŸ” Searching database with offline embeddings...');
+            console.log('🔍 Searching database with offline embeddings...');
             const queryEmbedding = await this.embeddingService.generateEmbedding(userMessage);
             // Step 2: Search for relevant documents
             const searchResults = this.searchRepo.searchSimilar(queryEmbedding, 5);
@@ -201,7 +201,7 @@ You are running completely offline with no internet access.`
             const textResults = this.searchRepo.searchByText(userMessage, 3);
             // Step 4: Combine and deduplicate results
             const allResults = this.combineSearchResults(searchResults, textResults);
-            console.log(`ðŸ“Š Found ${allResults.length} relevant documents`);
+            console.log(`📊 Found ${allResults.length} relevant documents`);
             // Step 5: Prepare context for LLM
             const context = this.prepareContext(allResults);
             // Step 6: Classify intent (strategies/geographies/other) via LLM before enrichment
@@ -240,7 +240,7 @@ You are running completely offline with no internet access.`
             };
         }
         catch (error) {
-            console.error('âŒ Offline chat error:', error);
+            console.error('❌ Offline chat error:', error);
             throw error;
         }
     }
@@ -284,7 +284,7 @@ Answer:`;
             };
         }
         catch (error) {
-            console.error('âŒ Ollama generation error:', error);
+            console.error('❌ Ollama generation error:', error);
             return {
                 message: 'I apologize, but I encountered an error generating a response. Please make sure Ollama is running and the model is installed.'
             };
@@ -313,17 +313,17 @@ Answer:`;
     // Install required models
     async installModels() {
         try {
-            console.log('ðŸ“¥ Installing required models for offline chat...');
+            console.log('📥 Installing required models for offline chat...');
             // Install chat model
             console.log(`Installing chat model: ${this.chatModel}`);
             await this.ollama.pull({ model: this.chatModel });
             // Install embedding model
             await this.embeddingService.installEmbeddingModel();
-            console.log('âœ… All models installed successfully!');
+            console.log('✅ All models installed successfully!');
             return true;
         }
         catch (error) {
-            console.error('âŒ Failed to install models:', error);
+            console.error('❌ Failed to install models:', error);
             return false;
         }
     }
@@ -334,7 +334,7 @@ Answer:`;
             return models.models?.map((model) => model.name) || [];
         }
         catch (error) {
-            console.error('âŒ Failed to list models:', error);
+            console.error('❌ Failed to list models:', error);
             return [];
         }
     }
@@ -342,7 +342,7 @@ Answer:`;
     switchModel(newModel) {
         this.chatModel = newModel;
         this.context = []; // Reset context when switching models
-        console.log(`ðŸ”„ Switched to model: ${newModel}`);
+        console.log(`🔄 Switched to model: ${newModel}`);
     }
     // Prepare context from search results for LLM
     prepareContext(results) {
@@ -445,7 +445,7 @@ async function startOfflineDatabaseChat() {
             setup.instructions.forEach(instruction => {
                 console.log(`   ${instruction}`);
             });
-            console.log('\n[INFO] Ollama is NOT a web server — it\'s a desktop app that runs locally!');
+            console.log('\n[INFO] Ollama is NOT a web server � it\'s a desktop app that runs locally!');
             console.log('[INFO] Once you start "ollama serve", it runs at http://localhost:11434');
             return;
         }
@@ -457,18 +457,18 @@ async function startOfflineDatabaseChat() {
             });
             return;
         }
-        console.log('âœ… Ollama setup is complete!\n');
+        console.log('✅ Ollama setup is complete!\n');
         // Initialize database and repositories
-        const dbInstance = connectDB();
+        const dbInstance = await connectDB();
         // Create embeddings service
-        const embeddingsService = new embeddings_service_1.EmbeddingsService('nomic-embed-text');
+        const embeddingsService = new embeddings_service_1.EmbeddingsService();
         // Create repositories
         const crudRepo = new crud_repo_1.CrudRepository(dbInstance, embeddingsService);
         const searchRepo = new search_repo_1.SearchRepository(dbInstance);
         // Check if database has documents
         const stats = crudRepo.getStats();
         if (stats.documents === 0) {
-            console.log('âš ï¸ Database is empty. Please add some documents first.');
+            console.log('⚠️ Database is empty. Please add some documents first.');
             return;
         }
         console.log('[INFO] Connected to database with ' + stats.documents + ' documents');
@@ -481,7 +481,7 @@ async function startOfflineDatabaseChat() {
         await chatInterface.start();
     }
     catch (error) {
-        console.error('âŒ Failed to start offline chat:', error);
+        console.error('❌ Failed to start offline chat:', error);
     }
 }
 // Run if this is the main module

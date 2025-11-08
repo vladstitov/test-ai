@@ -1,6 +1,7 @@
 import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { EmbeddingsService } from './embeddings.service';
+import { getOllama } from './ollama-singleton';
 
 // Example usage - call createDB when you need it
 async function main(): Promise<void> {
@@ -8,10 +9,10 @@ async function main(): Promise<void> {
 
   try {
     // Connect to the persistent database
-    const dbInstance = connectDB(); // Uses database.db
+    const dbInstance = await connectDB(); // Uses database.db
 
     // Create embeddings service
-    const embeddingsService = new EmbeddingsService('nomic-embed-text');
+    const embeddingsService = new EmbeddingsService();
 
     // Create CRUD repository with embeddings service
     const db = new CrudRepository(dbInstance, embeddingsService);

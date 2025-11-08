@@ -12,9 +12,9 @@ async function runTests() {
         // Test 1: Database initialization and data loading
         console.log('Test 1: Database Initialization');
         // Connect to existing database (load-real-data should prepare it)
-        const dbInstance = (0, sqlite_connector_1.connectDB)();
+        const dbInstance = await (0, sqlite_connector_1.connectDB)();
         // Create embeddings service
-        const embeddingsService = new embeddings_service_1.EmbeddingsService('nomic-embed-text');
+        const embeddingsService = new embeddings_service_1.EmbeddingsService();
         // Create repository instances
         crudRepo = new crud_repo_1.CrudRepository(dbInstance, embeddingsService);
         searchRepo = new search_repo_1.SearchRepository(dbInstance);

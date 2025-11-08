@@ -21,19 +21,20 @@ class SearchRepository {
     searchByText(searchTerm, limit = 10) {
         const pattern = `%${searchTerm}%`;
         const rows = this.db.prepare(`
-      SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
-             fundSize, targetSize, status, industries, created_at
+      SELECT id, _id, name, aliases, vintage, strategy, geography, strategyGroup, geographyGroup,
+             fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
       FROM funds
-      WHERE name LIKE ? OR fundType LIKE ? OR strategy LIKE ? OR geography LIKE ? OR status LIKE ?
-      ORDER BY created_at DESC
+      WHERE name LIKE ? OR strategy LIKE ? OR geography LIKE ? OR status LIKE ?
+      ORDER BY COALESCE(createdAt, created_at) DESC
       LIMIT ?
-    `).all(pattern, pattern, pattern, pattern, pattern, limit);
+    `).all(pattern, pattern, pattern, pattern, limit);
         return rows.map(r => ({
             id: r.id,
             _id: String(r._id),
             name: r.name,
             aliases: this.parseJsonList(r.aliases),
             fundType: r.fundType,
+            manager: r.manager,
             vintage: r.vintage,
             strategy: r.strategy,
             geography: r.geography,
@@ -52,23 +53,24 @@ class SearchRepository {
         const params = [];
         for (const term of searchTerms) {
             const p = `%${term}%`;
-            clauses.push('(name LIKE ? OR fundType LIKE ? OR strategy LIKE ? OR geography LIKE ? OR status LIKE ?)');
-            params.push(p, p, p, p, p);
+            clauses.push('(name LIKE ? OR strategy LIKE ? OR geography LIKE ? OR status LIKE ?)');
+            params.push(p, p, p, p);
         }
         const where = clauses.join(` ${operator} `);
         params.push(limit);
         const rows = this.db.prepare(`
-      SELECT id, _id, name, aliases, fundType, vintage, strategy, geography, strategyGroup, geographyGroup,
-             fundSize, targetSize, status, industries, created_at
+      SELECT id, _id, name, aliases, vintage, strategy, geography, strategyGroup, geographyGroup,
+             fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
       FROM funds
       WHERE ${where}
-      ORDER BY created_at DESC
+      ORDER BY COALESCE(createdAt, created_at) DESC
       LIMIT ?
     `).all(...params);
         return rows.map(r => ({
             id: r.id,
             _id: String(r._id),
             name: r.name,
+            manager: r.manager,
             aliases: this.parseJsonList(r.aliases),
             fundType: r.fundType,
             vintage: r.vintage,
@@ -83,9 +85,41 @@ class SearchRepository {
         }));
     }
     // Vector similarity is not supported for funds-only schema
-    searchSimilar(_queryEmbedding, _limit = 5) {
-        console.log('[INFO] Vector similarity not supported for funds-only schema');
-        return [];
+    searchSimilar(queryEmbedding, limit = 5) {
+        if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0)
+            return [];
+        const blob = Buffer.from(new Float32Array(queryEmbedding).buffer);
+        const rows = this.db.prepare(`
+      SELECT f.id, f._id, f.name, f.aliases, f.vintage, f.strategy, f.geography, f.strategyGroup, f.geographyGroup,
+             f.fundSize, f.targetSize, f.status, f.industries,
+             COALESCE(f.createdAt, f.created_at) AS createdAt,
+             v.distance as distance
+      FROM funds_vss v
+      JOIN funds f ON f.id = v.rowid
+      WHERE vss_search(v.embedding, vss_search_params(?, ?))
+      ORDER BY v.distance
+      LIMIT ?
+    `).all(blob, limit, limit);
+        return rows.map(r => ({
+            id: r.id,
+            _id: String(r._id),
+            name: r.name,
+            aliases: this.parseJsonList(r.aliases),
+            fundType: undefined,
+            vintage: r.vintage,
+            manager: r.manager,
+            strategy: r.strategy,
+            geography: r.geography,
+            strategyGroup: r.strategyGroup,
+            geographyGroup: r.geographyGroup,
+            fundSize: r.fundSize,
+            targetSize: r.targetSize,
+            status: r.status,
+            industries: this.parseJsonList(r.industries),
+            similarity: 1 - (typeof r.distance === 'number' ? r.distance : Number(r.distance) || 0),
+            distance: (typeof r.distance === 'number' ? r.distance : Number(r.distance) || 0),
+            createdAt: r.createdAt,
+        }));
     }
     hybridSearch(query, _queryEmbedding, textWeight = 1, semanticWeight = 0, limit = 10) {
         const textResults = this.searchByText(query, limit * 2);
@@ -93,7 +127,7 @@ class SearchRepository {
             ...f,
             similarity: 1,
             distance: 0,
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
             textScore: textWeight,
             semanticScore: 0,
             totalScore: textWeight + 0 * semanticWeight,
@@ -127,7 +161,7 @@ class SearchRepository {
                 similarityRanges[2].count++;
             else
                 similarityRanges[3].count++;
-            const days = (now.getTime() - new Date(doc.created_at).getTime()) / (1000 * 3600 * 24);
+            const days = (now.getTime() - new Date(doc.createdAt).getTime()) / (1000 * 3600 * 24);
             if (days <= 1)
                 timePeriods[0].count++;
             else if (days <= 7)

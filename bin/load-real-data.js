@@ -39,7 +39,7 @@ async function insertFundsFromMongo(dbRepo, opts) {
 // Optional CLI entrypoint for convenience
 async function main() {
     // Get SQLite connection via connector (loads sqlite-vec if available, ensures funds table)
-    const db = (0, sqlite_connector_1.connectDB)();
+    const db = await (0, sqlite_connector_1.connectDB)();
     // Clear existing data from funds before loading
     try {
         console.log('[WARN] Clearing existing records from funds table...');
@@ -55,10 +55,10 @@ async function main() {
         console.error('[ERROR] Failed to clear funds table:', e.message);
         throw e;
     }
-    const embeddings = new embeddings_service_1.EmbeddingsService('nomic-embed-text');
+    const embeddings = new embeddings_service_1.EmbeddingsService();
     const repo = new crud_repo_1.CrudRepository(db, embeddings);
     const limit = 10;
-    await insertFundsFromMongo(repo, { limit, offset: 0, maxBatches: 1, dryRun: false });
+    await insertFundsFromMongo(repo, { limit, offset: 0, maxBatches: 1 });
     const stats = repo.getStats();
     console.log('[INFO] Database Stats after import:');
     console.log(`   Documents: ${stats.documents}`);

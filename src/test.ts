@@ -2,6 +2,7 @@ import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { SearchRepository } from './search.repo';
 import { EmbeddingsService } from './embeddings.service';
+import { getOllama } from './ollama-singleton';
 
 async function runTests(): Promise<void> {
   console.log('[INFO] Running SQLite VSS Tests...\n');
@@ -13,10 +14,10 @@ async function runTests(): Promise<void> {
     // Test 1: Database initialization and data loading
     console.log('Test 1: Database Initialization');
     // Connect to existing database (load-real-data should prepare it)
-    const dbInstance = connectDB();
+    const dbInstance = await connectDB();
 
     // Create embeddings service
-    const embeddingsService = new EmbeddingsService('nomic-embed-text');
+    const embeddingsService = new EmbeddingsService();
 
     // Create repository instances
     crudRepo = new CrudRepository(dbInstance, embeddingsService);

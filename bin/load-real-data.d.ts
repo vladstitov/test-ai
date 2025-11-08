@@ -3,7 +3,6 @@ interface LoadOptions {
     offset: number;
     limit: number;
     maxBatches: number;
-    dryRun?: boolean;
 }
 export declare function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{
     inserted: number;

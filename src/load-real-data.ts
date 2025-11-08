@@ -2,6 +2,7 @@ import { connectDB } from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { getFunds /*, getPrices*/ } from './mongo-connector';
 import { EmbeddingsService } from './embeddings.service';
+import { getOllama } from './ollama-singleton';
 import type { IOFundModel } from './fund.types';
 
 interface LoadOptions {
@@ -55,7 +56,7 @@ export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOpt
 // Optional CLI entrypoint for convenience
 async function main(): Promise<void> {
   // Get SQLite connection via connector (loads sqlite-vec if available, ensures funds table)
-  const db = connectDB();
+  const db = await connectDB();
   // Clear existing data from funds before loading
   try {
     console.log('[WARN] Clearing existing records from funds table...');
@@ -67,7 +68,7 @@ async function main(): Promise<void> {
     console.error('[ERROR] Failed to clear funds table:', (e as Error).message);
     throw e;
   }
-  const embeddings = new EmbeddingsService('nomic-embed-text');
+  const embeddings = new EmbeddingsService();
   const repo = new CrudRepository(db, embeddings);
 
 

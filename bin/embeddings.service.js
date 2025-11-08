@@ -1,14 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmbeddingsService = void 0;
-const ollama_1 = require("ollama");
+const ollama_singleton_1 = require("./ollama-singleton");
 // ========================================
 // EMBEDDINGS SERVICE CLASS
 // ========================================
 class EmbeddingsService {
-    constructor(embeddingModel = 'nomic-embed-text', ollamaInstance) {
-        this.ollama = ollamaInstance || new ollama_1.Ollama();
-        this.embeddingModel = embeddingModel;
+    constructor() {
+        this.ollama = (0, ollama_singleton_1.getOllama)();
     }
     // Generate embedding using Ollama
     async generateEmbedding(text) {
@@ -20,14 +19,14 @@ class EmbeddingsService {
             console.log(text);
             console.log(` Generating embedding for text using model: ${text.length}`);
             const response = await this.ollama.embeddings({
-                model: this.embeddingModel,
+                model: (0, ollama_singleton_1.getEmbeddingModel)(),
                 prompt: text
             });
             console.log(`Embedding generated successfully (${response.embedding.length} dimensions)`);
             return response.embedding;
         }
         catch (error) {
-            console.error('❌ Error generating embedding with Ollama:', error);
+            console.error('??O Error generating embedding with Ollama:', error);
             throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -39,19 +38,6 @@ class EmbeddingsService {
     // Generate embedding for search queries
     async generateQueryEmbedding(text) {
         return this.generateEmbedding(text);
-    }
-    // Get the embedding model being used
-    getEmbeddingModel() {
-        return this.embeddingModel;
-    }
-    // Set a different embedding model
-    setEmbeddingModel(model) {
-        this.embeddingModel = model;
-        console.log(`🔄 Embedding model changed to: ${model}`);
-    }
-    // Get the Ollama instance (useful for sharing across multiple services)
-    getOllamaInstance() {
-        return this.ollama;
     }
 }
 exports.EmbeddingsService = EmbeddingsService;

@@ -85,6 +85,7 @@ async function getFunds(offset = 0, limit = 100) {
             name: 1,
             aliases: 1,
             fundType: 1,
+            manager: 1,
             vintage: 1,
             strategy: 1,
             geography: 1,
