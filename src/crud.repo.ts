@@ -75,22 +75,28 @@ export class CrudRepository {
 
   // Helper: build a readable content string from a funds row
   private buildFundContent(r: {
-    name?: string; aliases?: string; fundType?: string; status?: string; vintage?: number;
-    strategy?: string; strategyGroup?: string; geography?: string; geographyGroup?: string;
+    name?: string; aliases?: string;
+   // fundType?: string;
+      status?: string; 
+      vintage?: number;
+    strategy?: string; 
+   // strategyGroup?: string;
+     geography?: string;
+    //  geographyGroup?: string;
     industries?: string; fundSize?: number; targetSize?: number;
   }): string {
     const aliases = this.parseJsonList(r.aliases);
     const industries = this.parseJsonList(r.industries);
     const parts: string[] = [];
-    parts.push(`Name: ${r.name ?? 'Unknown'}`);
+    parts.push(`Name: ${r.name ?? 'Fund'}`);
     if (aliases.length) parts.push(`Aliases: ${aliases.join(', ')}`);
-    if (r.fundType) parts.push(`Type: ${r.fundType}`);
+   /// if (r.fundType) parts.push(`Type: ${r.fundType}`);
     if (r.status) parts.push(`Status: ${r.status}`);
     if (r.vintage != null) parts.push(`Vintage: ${r.vintage}`);
     if (r.strategy) parts.push(`Strategy: ${r.strategy}`);
-    if (r.strategyGroup) parts.push(`Strategy Group: ${r.strategyGroup}`);
+   /// if (r.strategyGroup) parts.push(`Strategy Group: ${r.strategyGroup}`);
     if (r.geography) parts.push(`Geography: ${r.geography}`);
-    if (r.geographyGroup) parts.push(`Geography Group: ${r.geographyGroup}`);
+   /// if (r.geographyGroup) parts.push(`Geography Group: ${r.geographyGroup}`);
     if (industries.length) parts.push(`Industries: ${industries.join(', ')}`);
     if (r.fundSize != null) parts.push(`Fund Size: ${r.fundSize}`);
     if (r.targetSize != null) parts.push(`Target Size: ${r.targetSize}`);
@@ -127,16 +133,18 @@ export class CrudRepository {
       `).get(id) as any | undefined;
       if (!r) return false;
 
-      const title = r.name ?? String(r._id);
+
+      
+      const title = r.name  + ' ' + r.vintage;
       const content = this.buildFundContent({
         name: r.name,
         aliases: r.aliases,
-        fundType: r.fundType,
+       // fundType: r.fundType,
         vintage: r.vintage,
         strategy: r.strategy,
         geography: r.geography,
-        strategyGroup: r.strategyGroup,
-        geographyGroup: r.geographyGroup,
+       // strategyGroup: r.strategyGroup,
+       // geographyGroup: r.geographyGroup,
         fundSize: r.fundSize,
         targetSize: r.targetSize,
         status: r.status,

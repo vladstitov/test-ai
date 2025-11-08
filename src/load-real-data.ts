@@ -7,8 +7,7 @@ import type { IOFundModel } from './fund.types';
 interface LoadOptions {
   offset: number; 
   limit: number
-  maxBatches: number;
-  dryRun?: boolean;
+  maxBatches: number; 
 }
 
 export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{ inserted: number;  batches: number; }> {
@@ -75,7 +74,7 @@ async function main(): Promise<void> {
   const limit: number = 10;
    
 
-  await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 1, dryRun: false });
+  await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 1 });
 
   const stats = repo.getStats();
   console.log('[INFO] Database Stats after import:');

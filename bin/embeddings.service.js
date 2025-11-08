@@ -18,7 +18,7 @@ class EmbeddingsService {
         }
         try {
             console.log(text);
-            /// console.log(` Generating embedding for text using model: ${text.length}`);
+            console.log(` Generating embedding for text using model: ${text.length}`);
             const response = await this.ollama.embeddings({
                 model: this.embeddingModel,
                 prompt: text
