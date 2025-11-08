@@ -25,7 +25,7 @@ async function insertFundsFromMongo(dbRepo, opts) {
                 // Generate and store embedding per fund (best-effort)
                 await dbRepo.generateAndStoreFundEmbeddingById(id);
                 totalInserted++;
-                console.log(`   Inserted ${totalInserted} documents so far...`);
+                console.log(` Inserted ${totalInserted}  id ${id}`);
             }
             catch (err) {
                 const name = (f && (f.name || f._id)) ? String(f.name ?? f._id) : 'unknown';
@@ -38,27 +38,15 @@ async function insertFundsFromMongo(dbRepo, opts) {
 }
 // Optional CLI entrypoint for convenience
 async function main() {
-    // Get SQLite connection via connector (loads sqlite-vec if available, ensures funds table)
+    // Get SQLite connection via connector
     const db = await (0, sqlite_connector_1.connectDB)();
-    // Clear existing data from funds before loading
-    try {
-        console.log('[WARN] Clearing existing records from funds table...');
-        db.exec('DELETE FROM funds;');
-        // Optional: reset AUTOINCREMENT sequence
-        try {
-            db.exec("DELETE FROM sqlite_sequence WHERE name='funds';");
-        }
-        catch { }
-        console.log('[OK] Funds table cleared');
-    }
-    catch (e) {
-        console.error('[ERROR] Failed to clear funds table:', e.message);
-        throw e;
-    }
+    // Drop and recreate schema on each run
+    (0, sqlite_connector_1.deleteFundsSchema)();
+    (0, sqlite_connector_1.createFundScema)();
     const embeddings = new embeddings_service_1.EmbeddingsService();
     const repo = new crud_repo_1.CrudRepository(db, embeddings);
-    const limit = 10;
-    await insertFundsFromMongo(repo, { limit, offset: 0, maxBatches: 1 });
+    const limit = 1000;
+    await insertFundsFromMongo(repo, { limit, offset: 0, maxBatches: 200 });
     const stats = repo.getStats();
     console.log('[INFO] Database Stats after import:');
     console.log(`   Documents: ${stats.documents}`);

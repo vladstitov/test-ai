@@ -2,10 +2,6 @@ import Database from 'better-sqlite3';
 import { EmbeddingsService } from './embeddings.service';
 import type { IOFundModel } from './fund.types';
 
-// ========================================
-// TYPES AND INTERFACES
-// ========================================
-
 export type Document = IOFundModel & {
   id: number;
   createdAt: string;
@@ -21,22 +17,12 @@ export interface DatabaseStats {
 
 export interface DatabaseSchema {
   tables: {
-    documents: {
-      columns: string[];
-      description: string;
-    };
-    embeddings: {
-      columns: string[];
-      description: string;
-    };
+    documents: { columns: string[]; description: string };
+    embeddings: { columns: string[]; description: string };
   };
   relationships: string[];
   indexes: string[];
 }
-
-// ========================================
-// CRUD REPOSITORY CLASS
-// ========================================
 
 export class CrudRepository {
   private db: Database.Database;
@@ -47,17 +33,8 @@ export class CrudRepository {
     if (!embeddingsService) throw new Error('EmbeddingsService instance is required');
     this.db = dbInstance;
     this.embeddingsService = embeddingsService;
-
-    // Verify sqlite-vec availability
-    try {
-      this.db.exec('SELECT vec_version()');
-      console.log('[INFO] sqlite-vec extension detected - using native vector operations');
-    } catch {
-      throw new Error('sqlite-vec extension is required for embeddings but not available');
-    }
   }
 
-  // Helper: parse JSON array string into string[] safely
   private parseJsonList(jsonStr?: string): string[] {
     if (!jsonStr) return [];
     try {
@@ -68,7 +45,6 @@ export class CrudRepository {
     }
   }
 
-  // Helper: build a readable content string from a funds row
   private buildFundContent(
     r: {
       name?: string;
@@ -101,29 +77,20 @@ export class CrudRepository {
     return parts.join('\n');
   }
 
-  // Helper: map a funds row to a Document-like object
   private fundRowToDocument(r: { id: number; createdAt: string } & any): Document {
     const name = r.name ?? String(r._id);
     const title = r.vintage != null ? `${name} (${r.vintage})` : name;
-    return {
-      id: r.id,
-      title,
-      content: this.buildFundContent(r),
-      createdAt: r.createdAt,
-    } as Document;
+    return { id: r.id, title, content: this.buildFundContent(r), createdAt: r.createdAt } as Document;
   }
 
-  // Public method to generate embeddings for search queries
   async generateQueryEmbedding(text: string): Promise<number[]> {
     return this.embeddingsService.generateQueryEmbedding(text);
   }
 
-  // Get the embeddings service instance
   getEmbeddingsService(): EmbeddingsService {
     return this.embeddingsService;
   }
 
-  // Generate embedding for a fund row and persist it to VSS table
   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
     try {
       const r = this.db
@@ -156,10 +123,11 @@ export class CrudRepository {
       const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content);
       if (!Array.isArray(embedding) || embedding.length === 0) return false;
 
-      const stmt = this.db.prepare('INSERT OR REPLACE INTO funds_vss(rowid, embedding) VALUES (?, ?)');
       const blob = Buffer.from(new Float32Array(embedding).buffer);
-      console.log('Inserting VSS embedding BLOB ' + blob.length);
-      stmt.run(id, blob);
+      this.db.prepare('UPDATE funds SET embedding = ? WHERE id = ?').run(blob, id);
+      try {
+        this.db.prepare('INSERT OR REPLACE INTO funds_vec(rowid, embedding) VALUES (?, ?)').run(id, blob);
+      } catch {}
       return true;
     } catch (error) {
       console.warn('[WARN] Failed to generate/store embedding for fund:', (error as Error).message);
@@ -167,7 +135,6 @@ export class CrudRepository {
     }
   }
 
-  // Insert a fund: persists raw fields to funds only
   insertFund(fund: IOFundModel): number {
     try {
       const aliasesJson = JSON.stringify(fund.aliases ?? []);
@@ -198,8 +165,8 @@ export class CrudRepository {
         | { id: number }
         | undefined;
       const id = row?.id ?? 0;
-      if (id) console.log(`[OK] Fund upserted with ID: ${id}`);
-      else console.log('[WARN] Fund insert did not return an ID');
+      //if (id)/// console.log(`[OK] Fund upserted with ID: ${id}`);
+     // else console.log('[WARN] Fund insert did not return an ID');
       return id;
     } catch (error) {
       console.error('[ERROR] Error inserting fund:', error);
@@ -207,7 +174,6 @@ export class CrudRepository {
     }
   }
 
-  // Get all documents (synthesized from funds rows)
   getAllDocuments(): Document[] {
     try {
       const rows = this.db
@@ -225,7 +191,6 @@ export class CrudRepository {
     }
   }
 
-  // Delete a document
   deleteDocument(id: number): boolean {
     try {
       const stmt = this.db.prepare('DELETE FROM funds WHERE id = ?');
@@ -242,7 +207,6 @@ export class CrudRepository {
     }
   }
 
-  // Get fund as a synthesized document by ID
   getDocumentById(id: number): Document | null {
     try {
       const r = this.db
@@ -260,12 +224,11 @@ export class CrudRepository {
     }
   }
 
-  // Get embedding for a specific fund/document as a Float32Array view (no copy)
   getEmbeddingByDocumentId(documentId: number): Float32Array | null {
     try {
-      const row = this.db
-        .prepare('SELECT embedding FROM funds_vss WHERE rowid = ?')
-        .get(documentId) as { embedding?: any } | undefined;
+      const row = this.db.prepare('SELECT embedding FROM funds WHERE id = ?').get(documentId) as
+        | { embedding?: any }
+        | undefined;
       if (!row || row.embedding == null) return null;
       const raw = row.embedding as any;
       const buf: Buffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
@@ -278,19 +241,19 @@ export class CrudRepository {
     }
   }
 
-  // Update embedding for a fund/document (deprecated)
   updateEmbedding(_documentId: number, _newEmbedding: number[]): boolean {
     console.log('[INFO] updateEmbedding is deprecated; use generateAndStoreFundEmbeddingById');
     return false;
   }
 
-  // Get database statistics
   getStats(): DatabaseStats {
     try {
       const fundCount = this.db.prepare('SELECT COUNT(*) as count FROM funds').get() as { count: number };
       let embCount: { count: number } = { count: 0 };
       try {
-        embCount = this.db.prepare('SELECT COUNT(*) as count FROM funds_vss').get() as { count: number };
+        embCount = this.db.prepare('SELECT COUNT(*) as count FROM funds WHERE LENGTH(embedding) > 0').get() as {
+          count: number;
+        };
       } catch {}
       return { documents: fundCount.count, embeddings: embCount.count, orphaned_documents: 0 };
     } catch (error) {
@@ -299,7 +262,6 @@ export class CrudRepository {
     }
   }
 
-  // Get database schema for LLM context
   getDatabaseSchema(): DatabaseSchema {
     try {
       return {
@@ -324,7 +286,7 @@ export class CrudRepository {
             ],
             description: 'Funds table storing raw Mongo fields (aliases, industries as JSON strings)',
           },
-          embeddings: { columns: [], description: 'Embeddings stored in funds_vss virtual table' },
+          embeddings: { columns: [], description: 'Embeddings stored in funds (BLOB) and optionally funds_vec' },
         },
         relationships: [],
         indexes: [],
@@ -334,4 +296,33 @@ export class CrudRepository {
       throw error;
     }
   }
+
+  getStrategies(): string[] {
+    try {
+      const rows = this.db
+        .prepare(
+          "SELECT DISTINCT strategy as s FROM funds WHERE strategy IS NOT NULL AND TRIM(strategy) <> '' ORDER BY strategy ASC"
+        )
+        .all() as Array<{ s: string }>;
+      return rows.map((r) => r.s);
+    } catch (error) {
+      console.error('[ERROR] Error getting strategies:', error);
+      throw error;
+    }
+  }
+
+  getGeographies(): string[] {
+    try {
+      const rows = this.db
+        .prepare(
+          "SELECT DISTINCT geography as g FROM funds WHERE geography IS NOT NULL AND TRIM(geography) <> '' ORDER BY geography ASC"
+        )
+        .all() as Array<{ g: string }>;
+      return rows.map((r) => r.g);
+    } catch (error) {
+      console.error('[ERROR] Error getting geographies:', error);
+      throw error;
+    }
+  }
 }
+

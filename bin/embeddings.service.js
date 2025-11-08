@@ -16,13 +16,13 @@ class EmbeddingsService {
             text = text.trim().substring(0, 4000);
         }
         try {
-            console.log(text);
-            console.log(` Generating embedding for text using model: ${text.length}`);
+            /// console.log(text);
+            ///   console.log(` Generating embedding for text using model: ${text.length}`);
             const response = await this.ollama.embeddings({
-                model: (0, ollama_singleton_1.getEmbeddingModel)(),
+                model: 'nomic-embed-text',
                 prompt: text
             });
-            console.log(`Embedding generated successfully (${response.embedding.length} dimensions)`);
+            ///   console.log(`Embedding generated successfully (${response.embedding.length} dimensions)`);
             return response.embedding;
         }
         catch (error) {

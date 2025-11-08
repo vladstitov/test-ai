@@ -1,4 +1,4 @@
-import { connectDB } from './sqlite-connector';
+import { connectDB, createFundScema, deleteFundsSchema} from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { getFunds /*, getPrices*/ } from './mongo-connector';
 import { EmbeddingsService } from './embeddings.service';
@@ -38,7 +38,7 @@ export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOpt
         await dbRepo.generateAndStoreFundEmbeddingById(id);
         totalInserted ++;
        
-        console.log(`   Inserted ${totalInserted} documents so far...`);
+        console.log(` Inserted ${totalInserted}  id ${id}`);
         
       } catch (err) {
         const name = (f && (f.name || f._id)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
@@ -55,27 +55,19 @@ export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOpt
 
 // Optional CLI entrypoint for convenience
 async function main(): Promise<void> {
-  // Get SQLite connection via connector (loads sqlite-vec if available, ensures funds table)
+  // Get SQLite connection via connector
   const db = await connectDB();
-  // Clear existing data from funds before loading
-  try {
-    console.log('[WARN] Clearing existing records from funds table...');
-    db.exec('DELETE FROM funds;');
-    // Optional: reset AUTOINCREMENT sequence
-    try { db.exec("DELETE FROM sqlite_sequence WHERE name='funds';"); } catch {}
-    console.log('[OK] Funds table cleared');
-  } catch (e) {
-    console.error('[ERROR] Failed to clear funds table:', (e as Error).message);
-    throw e;
-  }
+  // Drop and recreate schema on each run
+  deleteFundsSchema();
+  createFundScema() 
   const embeddings = new EmbeddingsService();
   const repo = new CrudRepository(db, embeddings);
 
 
-  const limit: number = 10;
+  const limit: number = 1000;
    
 
-  await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 1 });
+  await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 200 });
 
   const stats = repo.getStats();
   console.log('[INFO] Database Stats after import:');

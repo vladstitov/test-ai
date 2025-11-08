@@ -44,5 +44,7 @@ export declare class CrudRepository {
     updateEmbedding(_documentId: number, _newEmbedding: number[]): boolean;
     getStats(): DatabaseStats;
     getDatabaseSchema(): DatabaseSchema;
+    getStrategies(): string[];
+    getGeographies(): string[];
 }
 //# sourceMappingURL=crud.repo.d.ts.map

@@ -37,16 +37,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.connectDB = connectDB;
+exports.createFundScema = createFundScema;
+exports.deleteFundsSchema = deleteFundsSchema;
+exports.clearAllData = clearAllData;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const sqliteVec = __importStar(require("sqlite-vec"));
 // Simple SQLite connector for this project
 // - Opens (or creates) database.db by default
 // - Loads sqlite-vec (required) and tries sqlite-vss (optional)
 // - Ensures the 'funds' table exists
+let DB;
 async function connectDB(dbPath = 'database.db') {
     console.log(`[INFO] Connecting to SQLite database: ${dbPath}`);
     const db = new better_sqlite3_1.default(dbPath);
-    // Require sqlite-vec extension; abort if unavailable
+    // Require sqlite-vec extension; needed for vector ops and conversions
     try {
         sqliteVec.load(db);
         const row = db.prepare('SELECT vec_version() as v').get();
@@ -57,7 +61,7 @@ async function connectDB(dbPath = 'database.db') {
     catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         db.close();
-        throw new Error(`[FATAL] sqlite-vec extension is required for embeddings: ${msg}`);
+        throw new Error(`[FATAL] sqlite-vec extension is required for vector operations: ${msg}`);
     }
     // Try to load sqlite-vss for ANN vector search; continue if unavailable
     let vssLoaded = false;
@@ -71,96 +75,68 @@ async function connectDB(dbPath = 'database.db') {
     }
     catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.warn(`[WARN] sqlite-vss extension not available; vector search disabled: ${msg}`);
+        console.warn(`[WARN] sqlite-vss (JS loader) not available: ${msg}`);
     }
+    // (Removed native fallback loader for sqlite-vss)
     // Basic PRAGMAs
     try {
         db.exec('PRAGMA foreign_keys = ON;');
     }
     catch { }
-    // Ensure 'funds' table exists
-    const fundsTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='funds'").get();
-    if (!fundsTableExists) {
-        console.log('[INFO] Creating funds table...');
-        db.exec(`
-      CREATE TABLE funds (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        _id TEXT UNIQUE,
-        name TEXT,
-        aliases TEXT,
-        manager TEXT,
-        vintage INTEGER,
-        strategy TEXT,
-        geography TEXT,
-        strategyGroup TEXT,
-        geographyGroup TEXT,
-        fundSize REAL,
-        targetSize REAL,
-        status TEXT,
-        industries TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_funds__id ON funds(_id);
-    `);
-        console.log('[OK] Funds table created');
-        if (vssLoaded) {
-            try {
-                db.exec(`CREATE VIRTUAL TABLE funds_vss USING vss0(embedding(768));`);
-                console.log('[OK] funds_vss created');
-            }
-            catch (e) {
-                console.warn('[WARN] Could not create funds_vss:', e.message);
-            }
-        }
-    }
-    else {
-        console.log('[OK] Funds table present');
-        try {
-            const cols = db.prepare('PRAGMA table_info(funds)').all();
-            // Ensure 'manager' column exists; add it if missing
-            const hasManager = cols.some(c => c.name === 'manager');
-            if (!hasManager) {
-                console.log("[INFO] Adding 'manager' column to funds table as TEXT...");
-                try {
-                    db.exec('ALTER TABLE funds ADD COLUMN manager TEXT;');
-                    console.log('[OK] manager column added');
-                }
-                catch (e) {
-                    console.warn('[WARN] Could not add manager column:', e.message);
-                }
-            }
-            // Migrate created_at -> createdAt if needed
-            const hasCreatedAtSnake = cols.some(c => c.name === 'created_at');
-            const hasCreatedAtCamel = cols.some(c => c.name === 'createdAt');
-            if (hasCreatedAtSnake && !hasCreatedAtCamel) {
-                console.log("[INFO] Renaming column 'created_at' to 'createdAt'...");
-                try {
-                    db.exec('ALTER TABLE funds RENAME COLUMN created_at TO createdAt;');
-                    console.log('[OK] Column renamed to createdAt');
-                }
-                catch (e) {
-                    console.warn('[WARN] Could not rename created_at -> createdAt automatically:', e.message);
-                }
-            }
-            // Ensure VSS virtual table exists if vss is loaded
-            if (vssLoaded) {
-                try {
-                    const vtab = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='funds_vss'").get();
-                    if (!vtab) {
-                        console.log('[INFO] Creating funds_vss virtual table...');
-                        db.exec(`CREATE VIRTUAL TABLE funds_vss USING vss0(embedding(768));`);
-                        console.log('[OK] funds_vss created');
-                    }
-                }
-                catch (e) {
-                    console.warn('[WARN] Could not ensure funds_vss table:', e.message);
-                }
-            }
-        }
-        catch (err) {
-            console.log('[WARN] Could not verify/alter funds table:', err.message);
-        }
-    }
+    DB = db;
     return db;
+}
+function createFundScema() {
+    const db = DB;
+    if (!db)
+        return;
+    console.log('creating fund table ');
+    db.exec(`
+    CREATE TABLE IF NOT EXISTS funds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      _id TEXT,
+      name TEXT,
+      aliases TEXT,
+      manager TEXT,
+      vintage INTEGER,
+      strategy TEXT,
+      geography TEXT,
+      strategyGroup TEXT,
+      geographyGroup TEXT,
+      fundSize REAL,
+      targetSize REAL,
+      status TEXT,
+      industries TEXT,
+      embedding BLOB,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+}
+function deleteFundsSchema() {
+    const db = DB;
+    if (!db)
+        return;
+    console.warn('[WARN] dropping and creating tables...');
+    try {
+        db.exec('DROP TABLE IF EXISTS funds_vec;');
+    }
+    catch { }
+    try {
+        db.exec('DROP TABLE IF EXISTS funds;');
+    }
+    catch { }
+}
+// Utility: clear all known tables if they exist
+function clearAllData(db) {
+    try {
+        db.exec('DELETE FROM funds;');
+        console.log('[OK] Cleared table: funds');
+    }
+    catch { }
+    try {
+        db.exec('DELETE FROM funds_vec;');
+        console.log('[OK] Cleared table: funds_vss');
+    }
+    catch { }
 }
 //# sourceMappingURL=sqlite-connector.js.map

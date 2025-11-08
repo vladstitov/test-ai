@@ -1,9 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CrudRepository = void 0;
-// ========================================
-// CRUD REPOSITORY CLASS
-// ========================================
 class CrudRepository {
     constructor(dbInstance, embeddingsService) {
         if (!dbInstance)
@@ -12,16 +9,7 @@ class CrudRepository {
             throw new Error('EmbeddingsService instance is required');
         this.db = dbInstance;
         this.embeddingsService = embeddingsService;
-        // Verify sqlite-vec availability
-        try {
-            this.db.exec('SELECT vec_version()');
-            console.log('[INFO] sqlite-vec extension detected - using native vector operations');
-        }
-        catch {
-            throw new Error('sqlite-vec extension is required for embeddings but not available');
-        }
     }
-    // Helper: parse JSON array string into string[] safely
     parseJsonList(jsonStr) {
         if (!jsonStr)
             return [];
@@ -33,7 +21,6 @@ class CrudRepository {
             return [];
         }
     }
-    // Helper: build a readable content string from a funds row
     buildFundContent(r, opts = {}) {
         const { includeName = true } = opts;
         const aliases = this.parseJsonList(r.aliases);
@@ -61,26 +48,17 @@ class CrudRepository {
             parts.push(`Target Size: ${r.targetSize}`);
         return parts.join('\n');
     }
-    // Helper: map a funds row to a Document-like object
     fundRowToDocument(r) {
         const name = r.name ?? String(r._id);
         const title = r.vintage != null ? `${name} (${r.vintage})` : name;
-        return {
-            id: r.id,
-            title,
-            content: this.buildFundContent(r),
-            createdAt: r.createdAt,
-        };
+        return { id: r.id, title, content: this.buildFundContent(r), createdAt: r.createdAt };
     }
-    // Public method to generate embeddings for search queries
     async generateQueryEmbedding(text) {
         return this.embeddingsService.generateQueryEmbedding(text);
     }
-    // Get the embeddings service instance
     getEmbeddingsService() {
         return this.embeddingsService;
     }
-    // Generate embedding for a fund row and persist it to VSS table
     async generateAndStoreFundEmbeddingById(id) {
         try {
             const r = this.db
@@ -107,10 +85,12 @@ class CrudRepository {
             const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content);
             if (!Array.isArray(embedding) || embedding.length === 0)
                 return false;
-            const stmt = this.db.prepare('INSERT OR REPLACE INTO funds_vss(rowid, embedding) VALUES (?, ?)');
             const blob = Buffer.from(new Float32Array(embedding).buffer);
-            console.log('Inserting VSS embedding BLOB ' + blob.length);
-            stmt.run(id, blob);
+            this.db.prepare('UPDATE funds SET embedding = ? WHERE id = ?').run(blob, id);
+            try {
+                this.db.prepare('INSERT OR REPLACE INTO funds_vec(rowid, embedding) VALUES (?, ?)').run(id, blob);
+            }
+            catch { }
             return true;
         }
         catch (error) {
@@ -118,7 +98,6 @@ class CrudRepository {
             return false;
         }
     }
-    // Insert a fund: persists raw fields to funds only
     insertFund(fund) {
         try {
             const aliasesJson = JSON.stringify(fund.aliases ?? []);
@@ -130,10 +109,8 @@ class CrudRepository {
                 .run(String(fund._id), fund.name ?? null, aliasesJson, fund.manager ?? null, fund.vintage ?? null, fund.strategy ?? null, fund.geography ?? null, fund.strategyGroup ?? null, fund.geographyGroup ?? null, fund.fundSize ?? null, fund.targetSize ?? null, fund.status ?? null, industriesJson);
             const row = this.db.prepare('SELECT id FROM funds WHERE _id = ?').get(String(fund._id));
             const id = row?.id ?? 0;
-            if (id)
-                console.log(`[OK] Fund upserted with ID: ${id}`);
-            else
-                console.log('[WARN] Fund insert did not return an ID');
+            //if (id)/// console.log(`[OK] Fund upserted with ID: ${id}`);
+            // else console.log('[WARN] Fund insert did not return an ID');
             return id;
         }
         catch (error) {
@@ -141,14 +118,13 @@ class CrudRepository {
             throw error;
         }
     }
-    // Get all documents (synthesized from funds rows)
     getAllDocuments() {
         try {
             const rows = this.db
                 .prepare(`SELECT id, _id, name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup,
-                  fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
+                  fundSize, targetSize, status, industries, createdAt AS createdAt
            FROM funds
-           ORDER BY COALESCE(createdAt, created_at) DESC`)
+           ORDER BY createdAt DESC`)
                 .all();
             return rows.map((r) => this.fundRowToDocument(r));
         }
@@ -157,7 +133,6 @@ class CrudRepository {
             throw error;
         }
     }
-    // Delete a document
     deleteDocument(id) {
         try {
             const stmt = this.db.prepare('DELETE FROM funds WHERE id = ?');
@@ -174,12 +149,11 @@ class CrudRepository {
             throw error;
         }
     }
-    // Get fund as a synthesized document by ID
     getDocumentById(id) {
         try {
             const r = this.db
                 .prepare(`SELECT id, _id, name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup,
-                  fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
+                  fundSize, targetSize, status, industries, createdAt AS createdAt
            FROM funds WHERE id = ?`)
                 .get(id);
             if (!r)
@@ -191,12 +165,9 @@ class CrudRepository {
             throw error;
         }
     }
-    // Get embedding for a specific fund/document as a Float32Array view (no copy)
     getEmbeddingByDocumentId(documentId) {
         try {
-            const row = this.db
-                .prepare('SELECT embedding FROM funds_vss WHERE rowid = ?')
-                .get(documentId);
+            const row = this.db.prepare('SELECT embedding FROM funds WHERE id = ?').get(documentId);
             if (!row || row.embedding == null)
                 return null;
             const raw = row.embedding;
@@ -212,18 +183,16 @@ class CrudRepository {
             return null;
         }
     }
-    // Update embedding for a fund/document (deprecated)
     updateEmbedding(_documentId, _newEmbedding) {
         console.log('[INFO] updateEmbedding is deprecated; use generateAndStoreFundEmbeddingById');
         return false;
     }
-    // Get database statistics
     getStats() {
         try {
             const fundCount = this.db.prepare('SELECT COUNT(*) as count FROM funds').get();
             let embCount = { count: 0 };
             try {
-                embCount = this.db.prepare('SELECT COUNT(*) as count FROM funds_vss').get();
+                embCount = this.db.prepare('SELECT COUNT(*) as count FROM funds WHERE LENGTH(embedding) > 0').get();
             }
             catch { }
             return { documents: fundCount.count, embeddings: embCount.count, orphaned_documents: 0 };
@@ -233,7 +202,6 @@ class CrudRepository {
             throw error;
         }
     }
-    // Get database schema for LLM context
     getDatabaseSchema() {
         try {
             return {
@@ -258,7 +226,7 @@ class CrudRepository {
                         ],
                         description: 'Funds table storing raw Mongo fields (aliases, industries as JSON strings)',
                     },
-                    embeddings: { columns: [], description: 'Embeddings stored in funds_vss virtual table' },
+                    embeddings: { columns: [], description: 'Embeddings stored in funds (BLOB) and optionally funds_vec' },
                 },
                 relationships: [],
                 indexes: [],
@@ -266,6 +234,30 @@ class CrudRepository {
         }
         catch (error) {
             console.error('[ERROR] Error getting database schema:', error);
+            throw error;
+        }
+    }
+    getStrategies() {
+        try {
+            const rows = this.db
+                .prepare("SELECT DISTINCT strategy as s FROM funds WHERE strategy IS NOT NULL AND TRIM(strategy) <> '' ORDER BY strategy ASC")
+                .all();
+            return rows.map((r) => r.s);
+        }
+        catch (error) {
+            console.error('[ERROR] Error getting strategies:', error);
+            throw error;
+        }
+    }
+    getGeographies() {
+        try {
+            const rows = this.db
+                .prepare("SELECT DISTINCT geography as g FROM funds WHERE geography IS NOT NULL AND TRIM(geography) <> '' ORDER BY geography ASC")
+                .all();
+            return rows.map((r) => r.g);
+        }
+        catch (error) {
+            console.error('[ERROR] Error getting geographies:', error);
             throw error;
         }
     }

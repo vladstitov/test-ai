@@ -109,11 +109,10 @@ export class SearchRepository {
              f.fundSize, f.targetSize, f.status, f.industries,
              f.createdAt AS createdAt,
              v.distance as distance
-      FROM funds_vss v
+      FROM funds_vec v
       JOIN funds f ON f.id = v.rowid
-      WHERE vss_search(v.embedding, vss_search_params(?, ?))
-      ORDER BY v.distance
-      LIMIT ?
+      WHERE v.embedding MATCH ?
+      ORDER BY v.distance LIMIT ?
     `).all(blob, limit, limit) as Array<any>;
     return rows.map(r => ({
       id: r.id,

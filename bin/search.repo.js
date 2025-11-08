@@ -22,10 +22,10 @@ class SearchRepository {
         const pattern = `%${searchTerm}%`;
         const rows = this.db.prepare(`
       SELECT id, _id, name, aliases, vintage, strategy, geography, strategyGroup, geographyGroup,
-             fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
+             fundSize, targetSize, status, industries, createdAt AS createdAt
       FROM funds
       WHERE name LIKE ? OR strategy LIKE ? OR geography LIKE ? OR status LIKE ?
-      ORDER BY COALESCE(createdAt, created_at) DESC
+      ORDER BY createdAt DESC
       LIMIT ?
     `).all(pattern, pattern, pattern, pattern, limit);
         return rows.map(r => ({
@@ -60,10 +60,10 @@ class SearchRepository {
         params.push(limit);
         const rows = this.db.prepare(`
       SELECT id, _id, name, aliases, vintage, strategy, geography, strategyGroup, geographyGroup,
-             fundSize, targetSize, status, industries, COALESCE(createdAt, created_at) AS createdAt
+             fundSize, targetSize, status, industries, createdAt AS createdAt
       FROM funds
       WHERE ${where}
-      ORDER BY COALESCE(createdAt, created_at) DESC
+      ORDER BY createdAt DESC
       LIMIT ?
     `).all(...params);
         return rows.map(r => ({
@@ -92,13 +92,12 @@ class SearchRepository {
         const rows = this.db.prepare(`
       SELECT f.id, f._id, f.name, f.aliases, f.vintage, f.strategy, f.geography, f.strategyGroup, f.geographyGroup,
              f.fundSize, f.targetSize, f.status, f.industries,
-             COALESCE(f.createdAt, f.created_at) AS createdAt,
+             f.createdAt AS createdAt,
              v.distance as distance
-      FROM funds_vss v
+      FROM funds_vec v
       JOIN funds f ON f.id = v.rowid
-      WHERE vss_search(v.embedding, vss_search_params(?, ?))
-      ORDER BY v.distance
-      LIMIT ?
+      WHERE v.embedding MATCH ?
+      ORDER BY v.distance LIMIT ?
     `).all(blob, limit, limit);
         return rows.map(r => ({
             id: r.id,
