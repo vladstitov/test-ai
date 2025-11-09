@@ -32,3 +32,6 @@ Thumbs.db
 dist/
 build/
 coverage/
+
+# Local Qdrant runtime and static UI
+qdrant/

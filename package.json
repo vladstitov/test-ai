@@ -12,7 +12,8 @@
     "test": "npm run build && node bin/test.js",
     "chat": "npm run build && node bin/chat-interface.js",
     "offline-chat": "npm run build && node bin/offline-chat.js",
-    "load:funds": "npm run build && node bin/load-real-data.js"
+    "load:funds": "npm run build && node bin/load-real-data.js",
+    "start-qdrant": "npm run build && node bin/qdrant-runner.js"
   },
   "keywords": [
     "sqlite",
@@ -25,8 +26,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@qdrant/js-client-rest": "^1.15.1",
     "axios": "^1.13.1",
     "better-sqlite3": "^9.2.2",
+    "csv-parse": "^6.1.0",
+    "fast-glob": "^3.3.3",
     "mongodb": "^6.9.0",
     "ollama": "^0.6.0",
     "openai": "^6.7.0",

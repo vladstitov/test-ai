@@ -1,5 +1,7 @@
 import { connectDB, createFundScema, deleteFundsSchema} from './sqlite-connector';
 import { CrudRepository } from './crud.repo';
+import { QdrantRepository } from './qdrant.repo';
+import { dropAndCreateCollection } from './qdrant-connector';
 import { getFunds /*, getPrices*/ } from './mongo-connector';
 import { EmbeddingsService } from './embeddings.service';
 import { getOllama } from './ollama-singleton';
@@ -11,7 +13,7 @@ interface LoadOptions {
   maxBatches: number; 
 }
 
-export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{ inserted: number;  batches: number; }> {
+export async function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadOptions): Promise<{ inserted: number;  batches: number; }> {
   
   let batches = 0;
   let offset = 0
@@ -33,11 +35,8 @@ export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOpt
 
     for (const f of docs as IOFundModel[]) {
       try {
-        const id = dbRepo.insertFund(f);
-        // Generate and store embedding per fund (best-effort)
-        await dbRepo.generateAndStoreFundEmbeddingById(id);
-        totalInserted ++;
-       
+        const id = await dbRepo.insertFund(f);
+        totalInserted ++;        
         console.log(` Inserted ${totalInserted}  id ${id}`);
         
       } catch (err) {
@@ -56,12 +55,13 @@ export async function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOpt
 // Optional CLI entrypoint for convenience
 async function main(): Promise<void> {
   // Get SQLite connection via connector
-  const db = await connectDB();
-  // Drop and recreate schema on each run
-  deleteFundsSchema();
-  createFundScema() 
+  ///const db = await connectDB();
   const embeddings = new EmbeddingsService();
-  const repo = new CrudRepository(db, embeddings);
+
+
+  const repo =  new QdrantRepository('funds', embeddings)
+  // Reset the 'funds' collection to start fresh
+  await dropAndCreateCollection('funds', 768);
 
 
   const limit: number = 1000;
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
 
   await insertFundsFromMongo(repo, { limit, offset:0,  maxBatches: 200 });
 
-  const stats = repo.getStats();
+  const stats = await (repo.getStats?.() ?? { documents: 0, embeddings: 0, orphaned_documents: 0 });
   console.log('[INFO] Database Stats after import:');
   console.log(`   Documents: ${stats.documents}`);
   console.log(`   With Embeddings: ${stats.embeddings}`);

@@ -1,10 +1,10 @@
-import { CrudRepository } from './crud.repo';
+import { QdrantRepository } from './qdrant.repo';
 interface LoadOptions {
     offset: number;
     limit: number;
     maxBatches: number;
 }
-export declare function insertFundsFromMongo(dbRepo: CrudRepository, opts: LoadOptions): Promise<{
+export declare function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadOptions): Promise<{
     inserted: number;
     batches: number;
 }>;

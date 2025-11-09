@@ -1,6 +1,15 @@
-import axios, { AxiosInstance } from 'axios';
 import type { IOFundModel } from './fund.types';
 import { EmbeddingsService } from './embeddings.service';
+import {
+  getQdrantClient,
+  ensureCollection as ensureQdrantCollection,
+  upsertPoints,
+  scrollPoints,
+  searchPoints,
+  deletePoints as deleteQdrantPoints,
+  countPoints,
+  retrievePoint,
+} from './qdrant-connector';
 
 export type Document = IOFundModel & { id: number; createdAt: string; title?: string; content?: string };
 
@@ -11,27 +20,20 @@ interface QdrantPoint {
 }
 
 export class QdrantRepository {
-  private http: AxiosInstance;
   private collection: string;
   private embeddings: EmbeddingsService;
   private dim: number;
 
-  constructor(baseUrl: string, collection: string, embeddings: EmbeddingsService, dim: number = 768) {
-    if (!baseUrl) throw new Error('Qdrant base URL required');
-    this.http = axios.create({ baseURL: baseUrl.replace(/\/$/, '') });
+  constructor(collection: string, embeddings: EmbeddingsService, dim: number = 768) {
+    
+    getQdrantClient();
     this.collection = collection;
     this.embeddings = embeddings;
     this.dim = dim;
   }
 
   async ensureCollection(): Promise<void> {
-    try {
-      await this.http.get(`/collections/${this.collection}`);
-      return;
-    } catch {}
-    await this.http.put(`/collections/${this.collection}`, {
-      vectors: { size: this.dim, distance: 'Cosine' },
-    });
+    await ensureQdrantCollection(this.collection, this.dim);
   }
 
   private buildFundContent(r: Partial<IOFundModel> & { name?: string }): string {
@@ -74,32 +76,29 @@ export class QdrantRepository {
     const id = this.genNumericId();
     const payload = { ...fund, createdAt: new Date().toISOString() } as any;
     delete (payload as any).id;
-    await this.http.put(`/collections/${this.collection}/points`, {
-      points: [{ id, payload }],
-    });
+    const name = payload.name ?? String(payload._id ?? id);
+    const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
+    const content = this.buildFundContent(payload);
+    const vector = await this.embeddings.generateDocumentEmbedding(title, content);
+    
+    await upsertPoints(this.collection, [{ id, vector, payload }]);
     return id;
   }
 
   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
     try {
       await this.ensureCollection();
-      const getRes = await this.http.post(`/collections/${this.collection}/points/scroll`, {
-        filter: { must: [{ key: 'id', match: { value: id } }] },
-        with_payload: true,
-        with_vector: false,
-        limit: 1,
-      });
-      const point: QdrantPoint | undefined = getRes.data?.result?.points?.[0];
+      const point: any = await retrievePoint(this.collection, id, true, true);
       if (!point) return false;
+      const existingVector = point.vector;
+      if (Array.isArray(existingVector) && existingVector.length > 0) return true; // already embedded
       const r = (point.payload || {}) as any;
       const name = r.name ?? String(r._id ?? id);
       const title = r.vintage != null ? `${name} (${r.vintage})` : name;
       const content = this.buildFundContent(r);
       const vector = await this.embeddings.generateDocumentEmbedding(title, content);
       if (!Array.isArray(vector) || vector.length === 0) return false;
-      await this.http.put(`/collections/${this.collection}/points`, {
-        points: [{ id, vector, payload: r }],
-      });
+      await upsertPoints(this.collection, [{ id, vector, payload: r }]);
       return true;
     } catch (e) {
       return false;
@@ -108,34 +107,38 @@ export class QdrantRepository {
 
   async getAllDocuments(limit: number = 100): Promise<Document[]> {
     await this.ensureCollection();
-    const res = await this.http.post(`/collections/${this.collection}/points/scroll`, {
+    const res: any = await scrollPoints(this.collection, {
       with_payload: true,
       with_vector: false,
       limit,
     });
-    const pts: QdrantPoint[] = res.data?.result?.points ?? [];
+    const pts: QdrantPoint[] = res?.points ?? res?.result?.points ?? [];
     return pts.map((p) => this.toDocument(p));
   }
 
   async deleteDocument(id: number): Promise<boolean> {
     await this.ensureCollection();
-    const res = await this.http.post(`/collections/${this.collection}/points/delete`, { points: [id] });
-    return Boolean(res.data?.status === 'ok');
+    await deleteQdrantPoints(this.collection, [id]);
+    return true;
   }
 
   async getEmbeddingByDocumentId(id: number): Promise<Float32Array | null> {
     await this.ensureCollection();
-    const res = await this.http.get(`/collections/${this.collection}/points/${id}`, {
-      params: { with_vector: true, with_payload: false },
-    });
-    const v: number[] | undefined = res.data?.result?.vector;
-    return Array.isArray(v) ? new Float32Array(v) : null;
+    const pt: any = await retrievePoint(this.collection, id, true);
+    if (!pt) return null;
+    const v = (pt as any).vector;
+    // vector may be number[] or object with single key for named vector
+    const arr: number[] | undefined = Array.isArray(v)
+      ? v
+      : (v && typeof v === 'object'
+          ? (Array.isArray((Object.values(v)[0] as any)) ? (Object.values(v)[0] as number[]) : undefined)
+          : undefined);
+    return Array.isArray(arr) ? new Float32Array(arr) : null;
   }
 
-  async getStats(): Promise<DatabaseStats> {
+  async getStats(): Promise<{ documents: number; embeddings: number; orphaned_documents: number }> {
     await this.ensureCollection();
-    const countRes = await this.http.post(`/collections/${this.collection}/points/count`, { exact: true });
-    const documents = Number(countRes.data?.result?.count ?? 0);
+    const documents = await countPoints(this.collection, true);
     // We can approximate embeddings as all points that have a vector; Qdrant does not expose a direct count, so reuse documents
     return { documents, embeddings: documents, orphaned_documents: 0 };
   }
@@ -143,14 +146,8 @@ export class QdrantRepository {
   async searchSimilar(query: string, topK: number = 10): Promise<Array<Document & { distance: number }>> {
     await this.ensureCollection();
     const vector = await this.embeddings.generateQueryEmbedding(query);
-    const res = await this.http.post(`/collections/${this.collection}/points/search`, {
-      vector,
-      limit: topK,
-      with_payload: true,
-      with_vector: false,
-    });
-    const hits = res.data?.result ?? [];
+    const res: any = await searchPoints(this.collection, vector, topK, true);
+    const hits: any[] = (res as any)?.result ?? res ?? [];
     return hits.map((h: any) => ({ ...this.toDocument({ id: h.id, payload: h.payload }), distance: h.score }));
   }
 }
-

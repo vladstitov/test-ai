@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.insertFundsFromMongo = insertFundsFromMongo;
-const sqlite_connector_1 = require("./sqlite-connector");
-const crud_repo_1 = require("./crud.repo");
+const qdrant_repo_1 = require("./qdrant.repo");
+const qdrant_connector_1 = require("./qdrant-connector");
 const mongo_connector_1 = require("./mongo-connector");
 const embeddings_service_1 = require("./embeddings.service");
 async function insertFundsFromMongo(dbRepo, opts) {
@@ -21,9 +21,7 @@ async function insertFundsFromMongo(dbRepo, opts) {
         batches++;
         for (const f of docs) {
             try {
-                const id = dbRepo.insertFund(f);
-                // Generate and store embedding per fund (best-effort)
-                await dbRepo.generateAndStoreFundEmbeddingById(id);
+                const id = await dbRepo.insertFund(f);
                 totalInserted++;
                 console.log(` Inserted ${totalInserted}  id ${id}`);
             }
@@ -39,15 +37,14 @@ async function insertFundsFromMongo(dbRepo, opts) {
 // Optional CLI entrypoint for convenience
 async function main() {
     // Get SQLite connection via connector
-    const db = await (0, sqlite_connector_1.connectDB)();
-    // Drop and recreate schema on each run
-    (0, sqlite_connector_1.deleteFundsSchema)();
-    (0, sqlite_connector_1.createFundScema)();
+    ///const db = await connectDB();
     const embeddings = new embeddings_service_1.EmbeddingsService();
-    const repo = new crud_repo_1.CrudRepository(db, embeddings);
+    const repo = new qdrant_repo_1.QdrantRepository('funds', embeddings);
+    // Reset the 'funds' collection to start fresh
+    await (0, qdrant_connector_1.dropAndCreateCollection)('funds', 768);
     const limit = 1000;
     await insertFundsFromMongo(repo, { limit, offset: 0, maxBatches: 200 });
-    const stats = repo.getStats();
+    const stats = await (repo.getStats?.() ?? { documents: 0, embeddings: 0, orphaned_documents: 0 });
     console.log('[INFO] Database Stats after import:');
     console.log(`   Documents: ${stats.documents}`);
     console.log(`   With Embeddings: ${stats.embeddings}`);
