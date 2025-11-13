@@ -104,10 +104,10 @@ class CrudRepository {
             const industriesJson = JSON.stringify(fund.industries ?? []);
             this.db
                 .prepare(`INSERT OR IGNORE INTO funds (
-             _id, name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, industries
+             name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, industries
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-                .run(String(fund._id), fund.name ?? null, aliasesJson, fund.manager ?? null, fund.vintage ?? null, fund.strategy ?? null, fund.geography ?? null, fund.strategyGroup ?? null, fund.geographyGroup ?? null, fund.fundSize ?? null, fund.targetSize ?? null, fund.status ?? null, industriesJson);
-            const row = this.db.prepare('SELECT id FROM funds WHERE _id = ?').get(String(fund._id));
+                .run(fund.name ?? null, aliasesJson, fund.manager ?? null, fund.vintage ?? null, fund.strategy ?? null, fund.geography ?? null, fund.strategyGroup ?? null, fund.geographyGroup ?? null, fund.fundSize ?? null, fund.targetSize ?? null, fund.status ?? null, industriesJson);
+            const row = this.db.prepare('SELECT id FROM funds WHERE id = ?').get(String(fund.id));
             const id = row?.id ?? 0;
             //if (id)/// console.log(`[OK] Fund upserted with ID: ${id}`);
             // else console.log('[WARN] Fund insert did not return an ID');

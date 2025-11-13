@@ -142,11 +142,11 @@ export class CrudRepository {
       this.db
         .prepare(
           `INSERT OR IGNORE INTO funds (
-             _id, name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, industries
+             name, aliases, manager, vintage, strategy, geography, strategyGroup, geographyGroup, fundSize, targetSize, status, industries
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
-          String(fund._id),
+          
           fund.name ?? null,
           aliasesJson,
           (fund as any).manager ?? null,
@@ -161,7 +161,7 @@ export class CrudRepository {
           industriesJson
         );
 
-      const row = this.db.prepare('SELECT id FROM funds WHERE _id = ?').get(String(fund._id)) as
+      const row = this.db.prepare('SELECT id FROM funds WHERE id = ?').get(String(fund.id)) as
         | { id: number }
         | undefined;
       const id = row?.id ?? 0;

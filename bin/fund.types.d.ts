@@ -1,9 +1,7 @@
 export interface IOFundModel {
     id: number;
-    _id: string;
     name: string;
     aliases: string[];
-    fundType?: string;
     manager: string;
     vintage: number;
     strategy: string;

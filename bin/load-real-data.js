@@ -26,7 +26,7 @@ async function insertFundsFromMongo(dbRepo, opts) {
                 console.log(` Inserted ${totalInserted}  id ${id}`);
             }
             catch (err) {
-                const name = (f && (f.name || f._id)) ? String(f.name ?? f._id) : 'unknown';
+                const name = (f && (f.name)) ? String(f.name ?? f._id) : 'unknown';
                 console.error(`[ERROR] Failed to insert fund ${name}:`, err.message);
             }
         }

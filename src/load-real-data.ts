@@ -40,7 +40,7 @@ export async function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadO
         console.log(` Inserted ${totalInserted}  id ${id}`);
         
       } catch (err) {
-        const name = (f && (f.name || f._id)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
+        const name = (f && (f.name)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
         console.error(`[ERROR] Failed to insert fund ${name}:`, (err as Error).message);
       }
     }
