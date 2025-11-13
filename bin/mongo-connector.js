@@ -33,19 +33,41 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ConnectToMongo = ConnectToMongo;
 exports.getFunds = getFunds;
 exports.getPrices = getPrices;
 function defaultOptions() {
+    const cfg = require('../../config.json');
     return {
         mongoUri: undefined,
         // Hardcoded defaults per request
-        host: '10.0.0.89',
+        host: cfg.mongo.host,
         port: 27017,
-        user: undefined,
-        pass: undefined,
+        user: cfg.mongo.username || undefined,
+        pass: cfg.mongo.password || undefined,
         db: 'secondary',
         params: undefined
     };
+}
+var mongoClient;
+async function ConnectToMongo() {
+    return new Promise(async (resolve, reject) => {
+        const o = defaultOptions();
+        buildUri(o);
+        const uri = buildUri(o);
+        //  const dbName = o.db || (new URL(uri).pathname.replace(/^\//,'') || undefined);
+        // if (!dbName) throw new Error('Database name not specified.');
+        const MongoClient = await loadMongoClient();
+        mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 7000 });
+        mongoClient.on('open', () => {
+            resolve(mongoClient);
+            console.log('[INFO] MongoDB connection opened.');
+        });
+        mongoClient.on('close', () => {
+            console.log('[INFO] MongoDB connection closed.');
+        });
+        mongoClient.connect();
+    });
 }
 function buildUri(o) {
     if (o.mongoUri)
@@ -55,9 +77,9 @@ function buildUri(o) {
     const user = o.user ? encodeURIComponent(o.user) : '';
     const pass = o.pass ? encodeURIComponent(o.pass) : '';
     const auth = (user || pass) ? `${user}${pass ? `:${pass}` : ''}@` : '';
-    const db = o.db || '';
+    // const db =  '';
     const params = o.params ? `?${o.params}` : '';
-    return `mongodb://${auth}${host}:${port}/${db}${params}`;
+    return `mongodb://${auth}${host}:${port}/${params}`;
 }
 async function loadMongoClient() {
     try {
@@ -71,15 +93,10 @@ async function loadMongoClient() {
 async function getFunds(offset = 0, limit = 100) {
     const o = defaultOptions();
     const uri = buildUri(o);
-    const dbName = o.db || (new URL(uri).pathname.replace(/^\//, '') || undefined);
-    if (!dbName)
-        throw new Error('Database name not specified.');
-    const MongoClient = await loadMongoClient();
-    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 7000 });
+    ;
     const safeOffset = Math.max(0, Number(offset) || 0);
     const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : 100;
     try {
-        await client.connect();
         const projection = {
             _id: 1,
             name: 1,
@@ -96,8 +113,7 @@ async function getFunds(offset = 0, limit = 100) {
             status: 1,
             industries: 1
         };
-        const cursor = client
-            .db(dbName)
+        const cursor = mongoClient.db('secondary')
             .collection('funds')
             .find({}, { projection })
             .skip(safeOffset)
@@ -105,11 +121,10 @@ async function getFunds(offset = 0, limit = 100) {
         const docs = await cursor.toArray();
         return docs;
     }
-    finally {
-        try {
-            await client.close();
-        }
-        catch { }
+    catch (err) {
+        console.error('[ERROR] Failed to fetch funds from MongoDB:', err.message);
+        return [];
+        //try { await client.close(); } catch {}
     }
 }
 async function getPrices(offset = 0, limit = 100) {

@@ -2,7 +2,7 @@ import { connectDB, createFundScema, deleteFundsSchema} from './sqlite-connector
 import { CrudRepository } from './crud.repo';
 import { QdrantRepository } from './qdrant.repo';
 import { dropAndCreateCollection } from './qdrant-connector';
-import { getFunds /*, getPrices*/ } from './mongo-connector';
+import { ConnectToMongo, getFunds /*, getPrices*/ } from './mongo-connector';
 import { EmbeddingsService } from './embeddings.service';
 import { getOllama } from './ollama-singleton';
 import type { IOFundModel } from './fund.types';
@@ -56,6 +56,11 @@ export async function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadO
 async function main(): Promise<void> {
   // Get SQLite connection via connector
   ///const db = await connectDB();
+
+  const mongo = await ConnectToMongo();
+
+  return
+  
   const embeddings = new EmbeddingsService();
 
 
@@ -81,3 +86,5 @@ if (require.main === module) {
     process.exit(1);
   });
 }
+
+
