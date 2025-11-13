@@ -60,8 +60,8 @@ async function ConnectToMongo() {
         const MongoClient = await loadMongoClient();
         mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 7000 });
         mongoClient.on('open', () => {
-            resolve(mongoClient);
             console.log('[INFO] MongoDB connection opened.');
+            resolve(mongoClient);
         });
         mongoClient.on('close', () => {
             console.log('[INFO] MongoDB connection closed.');

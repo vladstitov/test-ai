@@ -39,7 +39,6 @@ async function main() {
     // Get SQLite connection via connector
     ///const db = await connectDB();
     const mongo = await (0, mongo_connector_1.ConnectToMongo)();
-    return;
     const embeddings = new embeddings_service_1.EmbeddingsService();
     const repo = new qdrant_repo_1.QdrantRepository('funds', embeddings);
     // Reset the 'funds' collection to start fresh

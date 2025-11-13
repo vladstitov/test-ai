@@ -1,0 +1,5 @@
+service:
+  grpc_port: 6334
+  http_port: 6333
+
+log_level: OFF

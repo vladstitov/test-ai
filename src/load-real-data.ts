@@ -59,12 +59,14 @@ async function main(): Promise<void> {
 
   const mongo = await ConnectToMongo();
 
-  return
+ 
   
   const embeddings = new EmbeddingsService();
 
+ 
 
   const repo =  new QdrantRepository('funds', embeddings)
+
   // Reset the 'funds' collection to start fresh
   await dropAndCreateCollection('funds', 768);
 
