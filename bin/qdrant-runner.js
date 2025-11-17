@@ -58,12 +58,10 @@ async function startQdrant() {
         return;
     if (qdrantProcess)
         return;
-    const exePath = resolveQdrantExePath();
-    if (!exePath) {
-        throw new Error('qdrant.exe not found. Place it one folder up or under qdrant/');
-    }
+    const exePath = 'E:\\qdrant\\qdrant.exe';
+    const configPath = 'E:\\qdrant\\cfg.yml';
     console.log(`Starting Qdrant from ${exePath}`);
-    qdrantProcess = (0, child_process_1.spawn)(exePath, ['--uri', URL_QDRANT], {
+    qdrantProcess = (0, child_process_1.spawn)(exePath, ['--config-path', configPath], {
         cwd: path_1.default.dirname(exePath),
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,

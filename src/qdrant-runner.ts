@@ -56,16 +56,18 @@ export async function startQdrant(): Promise<void> {
   if (await isHealthy()) return;
   if (qdrantProcess) return;
 
-  const exePath = resolveQdrantExePath();
-  if (!exePath) {
-    throw new Error('qdrant.exe not found. Place it one folder up or under qdrant/');
-  }
+  const exePath = 'E:\\qdrant\\qdrant.exe';
+  const configPath = 'E:\\qdrant\\cfg.yml';
+  
   console.log(`Starting Qdrant from ${exePath}`);
-  qdrantProcess = spawn(exePath, ['--uri', URL_QDRANT], {
+
+
+  qdrantProcess = spawn(exePath, ['--config-path', configPath], {
     cwd: path.dirname(exePath),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
+
 
   qdrantProcess.stdout?.on('data', (d) => console.log('[Qdrant]', d.toString().trim()));
   qdrantProcess.stderr?.on('data', (d) => console.error('[Qdrant ERROR]', d.toString().trim()));
@@ -74,7 +76,7 @@ export async function startQdrant(): Promise<void> {
     qdrantProcess = null;
   });
 
-  await waitForHealth(15000);
+  await waitForHealth();
   console.log('Qdrant is ready');
 }
 

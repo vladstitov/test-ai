@@ -13,7 +13,8 @@
     "chat": "npm run build && node bin/chat-interface.js",
     "offline-chat": "npm run build && node bin/offline-chat.js",
     "load:funds": "npm run build && node bin/load-real-data.js",
-    "start-qdrant": "npm run build && node bin/qdrant-runner.js"
+    "start-qdrant": "npm run build && node bin/qdrant-runner.js",
+    "start-qdrant-admin": "cd /d E:\\qdrant\\qdrant-web-ui && npm run start"
   },
   "keywords": [
     "sqlite",
