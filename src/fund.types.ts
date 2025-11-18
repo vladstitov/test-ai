@@ -4,7 +4,8 @@ export interface IOFundModel {
   id: number;  /// sql primary key
 
   name: string;            // Fund name
-  aliases: string[];      // Alternate names
+  aliases: string[]; 
+      // Alternate names
  
   manager: string;        // Fund manager (future)
   vintage: number;        // Year

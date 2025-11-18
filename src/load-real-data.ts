@@ -35,13 +35,13 @@ export async function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadO
 
     for (const f of docs as IOFundModel[]) {
       try {
-        const id = await dbRepo.insertFund(f);
+        const row = await dbRepo.insertFund(f);
         totalInserted ++;        
-        console.log(` Inserted ${totalInserted}  id ${id}`);
+        console.log(` Inserted ${totalInserted}  `);
         
       } catch (err) {
-        const name = (f && (f.name)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
-        console.error(`[ERROR] Failed to insert fund ${name}:`, (err as Error).message);
+     //   const name = (f && (f.name)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
+        console.error(`[ERROR] Failed to insert fund `, (err as Error).message);
       }
     }
 

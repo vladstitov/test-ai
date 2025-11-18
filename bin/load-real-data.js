@@ -21,13 +21,13 @@ async function insertFundsFromMongo(dbRepo, opts) {
         batches++;
         for (const f of docs) {
             try {
-                const id = await dbRepo.insertFund(f);
+                const row = await dbRepo.insertFund(f);
                 totalInserted++;
-                console.log(` Inserted ${totalInserted}  id ${id}`);
+                console.log(` Inserted ${totalInserted}  `);
             }
             catch (err) {
-                const name = (f && (f.name)) ? String(f.name ?? f._id) : 'unknown';
-                console.error(`[ERROR] Failed to insert fund ${name}:`, err.message);
+                //   const name = (f && (f.name)) ? String((f as any).name ?? (f as any)._id) : 'unknown';
+                console.error(`[ERROR] Failed to insert fund `, err.message);
             }
         }
         offset += opts.limit;

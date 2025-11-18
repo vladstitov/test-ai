@@ -39,7 +39,7 @@ export async function dropAndCreateCollection(collection: string, dim: number = 
   } as any);
 }
 
-export type UpsertPoint = { id: number | string; vector?: number[]; payload?: Record<string, any> };
+export type UpsertPoint = { embeddingText: string; vector?: number[]; payload?: Record<string, any> };
 
 export async function upsertPoints(collection: string, points: UpsertPoint[]): Promise<void> {
   const client = getQdrantClient();

@@ -34,24 +34,6 @@ async function waitForHealth(timeoutMs = 15000, intervalMs = 500) {
     }
     throw new Error('Qdrant did not become healthy in time');
 }
-function resolveQdrantExePath() {
-    const candidates = [];
-    // Common locations relative to compiled JS (__dirname points to bin)
-    candidates.push(path_1.default.join(process.cwd(), 'qdrant', 'qdrant.exe'), path_1.default.join(__dirname, 'qdrant', 'qdrant.exe'));
-    for (const p of candidates) {
-        try {
-            // fs exists check without importing fs promises
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const fs = require('fs');
-            if (fs.existsSync(p))
-                return p;
-        }
-        catch {
-            // continue
-        }
-    }
-    return null;
-}
 async function startQdrant() {
     // If already running, return early
     if (await isHealthy())
@@ -72,7 +54,7 @@ async function startQdrant() {
         console.log(`[Qdrant exited ${code}]`);
         qdrantProcess = null;
     });
-    await waitForHealth(15000);
+    await waitForHealth();
     console.log('Qdrant is ready');
 }
 async function ensureQdrantRunning(baseUrl) {

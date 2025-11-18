@@ -4,7 +4,6 @@ import http from 'http';
 
 let qdrantProcess: ReturnType<typeof spawn> | null = null;
 
-
 const URL_QDRANT = 'http://127.0.0.1:6333';
 async function isHealthy(): Promise<boolean> {
   const url = new URL('/healthz',URL_QDRANT);
@@ -29,26 +28,6 @@ async function waitForHealth(timeoutMs: number = 15000, intervalMs: number = 500
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error('Qdrant did not become healthy in time');
-}
-
-function resolveQdrantExePath(): string | null {
-  const candidates: string[] = [];
-  // Common locations relative to compiled JS (__dirname points to bin)
-  candidates.push(   
-    path.join(process.cwd(), 'qdrant', 'qdrant.exe'),   
-    path.join(__dirname, 'qdrant', 'qdrant.exe')
-  );
-  for (const p of candidates) {
-    try {
-      // fs exists check without importing fs promises
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const fs = require('fs');
-      if (fs.existsSync(p)) return p;
-    } catch {
-      // continue
-    }
-  }
-  return null;
 }
 
 export async function startQdrant(): Promise<void> {

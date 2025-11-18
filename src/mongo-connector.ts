@@ -72,9 +72,9 @@ export async function getFunds(offset: number = 0, limit: number = 100): Promise
     const projection = {
       _id: 1,
       name: 1,
-      aliases: 1,
+      names: 1,
       fundType: 1,
-      manager: 1,
+     // manager: 1,
       vintage: 1,
       strategy: 1,
       geography: 1,

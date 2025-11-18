@@ -40,15 +40,17 @@ export class QdrantRepository {
     const aliases = Array.isArray((r as any).aliases) ? (r as any).aliases as string[] : [];
     const industries = Array.isArray(r.industries) ? r.industries : [];
     const parts: string[] = [];
-    parts.push(`Name: ${r.name ?? 'Fund'}`);
+    parts.push(`Fund Name: ${r.name ?? 'Fund'}`);
     if (aliases.length) parts.push(`Aliases: ${aliases.join(', ')}`);
     if (r.status) parts.push(`Status: ${r.status}`);
     if (r.vintage != null) parts.push(`Vintage: ${r.vintage}`);
     if (r.strategy) parts.push(`Strategy: ${r.strategy}`);
+     if (r.strategyGroup) parts.push(`Strategy Group: ${r.strategyGroup}`);
     if (r.geography) parts.push(`Geography: ${r.geography}`);
+    if (r.geographyGroup) parts.push(`Geography Group: ${r.geographyGroup}`);
     if (industries.length) parts.push(`Industries: ${industries.join(', ')}`);
-    if (r.fundSize != null) parts.push(`Fund Size: ${r.fundSize}`);
-    if (r.targetSize != null) parts.push(`Target Size: ${r.targetSize}`);
+    if (r.fundSize != null) parts.push(`Fund Size: ${r.fundSize}M`);
+    if (r.targetSize != null) parts.push(`Target Size: ${r.targetSize}M`);
     return parts.join('\n');
   }
 
@@ -64,28 +66,35 @@ export class QdrantRepository {
       ...r,
     } as Document;
   }
-
+/* 
   private genNumericId(): number {
     const high = Date.now();
     const low = Math.floor(Math.random() * 1000);
     return high * 1000 + low;
   }
-
-  async insertFund(fund: IOFundModel): Promise<number> {
+ */
+  async insertFund(fund: IOFundModel): Promise<void> {
     await this.ensureCollection();
-    const id = this.genNumericId();
-    const payload = { ...fund, createdAt: new Date().toISOString() } as any;
+  //  const id = this.genNumericId();
+      // @ts-ignore
+    const aliases =     (fund.names || []).map((alias: string) => alias.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
+  
+    fund.aliases = [...new Set(aliases)] as any;
+    delete (fund as any).names;
+    const payload = fund as any;
+    delete (payload as any).fundType;
     delete (payload as any).id;
-    const name = payload.name ?? String(payload._id ?? id);
+    const name = payload.name;
     const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
-    const content = this.buildFundContent(payload);
-    const vector = await this.embeddings.generateDocumentEmbedding(title, content);
+    const embeddingText = this.buildFundContent(payload);
     
-    await upsertPoints(this.collection, [{ id, vector, payload }]);
-    return id;
+    const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
+    
+   return  upsertPoints(this.collection, [{vector, payload , embeddingText}]);
+    
   }
 
-  async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
+/*   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
     try {
       await this.ensureCollection();
       const point: any = await retrievePoint(this.collection, id, true, true);
@@ -98,12 +107,12 @@ export class QdrantRepository {
       const content = this.buildFundContent(r);
       const vector = await this.embeddings.generateDocumentEmbedding(title, content);
       if (!Array.isArray(vector) || vector.length === 0) return false;
-      await upsertPoints(this.collection, [{ id, vector, payload: r }]);
+      await upsertPoints(this.collection, [{vector, payload: r }]);
       return true;
     } catch (e) {
       return false;
     }
-  }
+  } */
 
   async getAllDocuments(limit: number = 100): Promise<Document[]> {
     await this.ensureCollection();
@@ -122,7 +131,7 @@ export class QdrantRepository {
     return true;
   }
 
-  async getEmbeddingByDocumentId(id: number): Promise<Float32Array | null> {
+/*   async getEmbeddingByDocumentId(id: number): Promise<Float32Array | null> {
     await this.ensureCollection();
     const pt: any = await retrievePoint(this.collection, id, true);
     if (!pt) return null;
@@ -134,7 +143,7 @@ export class QdrantRepository {
           ? (Array.isArray((Object.values(v)[0] as any)) ? (Object.values(v)[0] as number[]) : undefined)
           : undefined);
     return Array.isArray(arr) ? new Float32Array(arr) : null;
-  }
+  } */
 
   async getStats(): Promise<{ documents: number; embeddings: number; orphaned_documents: number }> {
     await this.ensureCollection();

@@ -14,12 +14,9 @@ export declare class QdrantRepository {
     ensureCollection(): Promise<void>;
     private buildFundContent;
     private toDocument;
-    private genNumericId;
-    insertFund(fund: IOFundModel): Promise<number>;
-    generateAndStoreFundEmbeddingById(id: number): Promise<boolean>;
+    insertFund(fund: IOFundModel): Promise<void>;
     getAllDocuments(limit?: number): Promise<Document[]>;
     deleteDocument(id: number): Promise<boolean>;
-    getEmbeddingByDocumentId(id: number): Promise<Float32Array | null>;
     getStats(): Promise<{
         documents: number;
         embeddings: number;

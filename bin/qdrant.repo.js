@@ -16,7 +16,7 @@ class QdrantRepository {
         const aliases = Array.isArray(r.aliases) ? r.aliases : [];
         const industries = Array.isArray(r.industries) ? r.industries : [];
         const parts = [];
-        parts.push(`Name: ${r.name ?? 'Fund'}`);
+        parts.push(`Fund Name: ${r.name ?? 'Fund'}`);
         if (aliases.length)
             parts.push(`Aliases: ${aliases.join(', ')}`);
         if (r.status)
@@ -25,14 +25,18 @@ class QdrantRepository {
             parts.push(`Vintage: ${r.vintage}`);
         if (r.strategy)
             parts.push(`Strategy: ${r.strategy}`);
+        if (r.strategyGroup)
+            parts.push(`Strategy Group: ${r.strategyGroup}`);
         if (r.geography)
             parts.push(`Geography: ${r.geography}`);
+        if (r.geographyGroup)
+            parts.push(`Geography Group: ${r.geographyGroup}`);
         if (industries.length)
             parts.push(`Industries: ${industries.join(', ')}`);
         if (r.fundSize != null)
-            parts.push(`Fund Size: ${r.fundSize}`);
+            parts.push(`Fund Size: ${r.fundSize}M`);
         if (r.targetSize != null)
-            parts.push(`Target Size: ${r.targetSize}`);
+            parts.push(`Target Size: ${r.targetSize}M`);
         return parts.join('\n');
     }
     toDocument(p) {
@@ -47,46 +51,48 @@ class QdrantRepository {
             ...r,
         };
     }
-    genNumericId() {
+    /*
+      private genNumericId(): number {
         const high = Date.now();
         const low = Math.floor(Math.random() * 1000);
         return high * 1000 + low;
-    }
+      }
+     */
     async insertFund(fund) {
         await this.ensureCollection();
-        const id = this.genNumericId();
-        const payload = { ...fund, createdAt: new Date().toISOString() };
+        //  const id = this.genNumericId();
+        // @ts-ignore
+        const aliases = (fund.names || []).map((alias) => alias.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
+        fund.aliases = [...new Set(aliases)];
+        delete fund.names;
+        const payload = fund;
+        delete payload.fundType;
         delete payload.id;
-        const name = payload.name ?? String(payload._id ?? id);
+        const name = payload.name;
         const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
-        const content = this.buildFundContent(payload);
-        const vector = await this.embeddings.generateDocumentEmbedding(title, content);
-        await (0, qdrant_connector_1.upsertPoints)(this.collection, [{ id, vector, payload }]);
-        return id;
+        const embeddingText = this.buildFundContent(payload);
+        const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
+        return (0, qdrant_connector_1.upsertPoints)(this.collection, [{ vector, payload, embeddingText }]);
     }
-    async generateAndStoreFundEmbeddingById(id) {
+    /*   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
         try {
-            await this.ensureCollection();
-            const point = await (0, qdrant_connector_1.retrievePoint)(this.collection, id, true, true);
-            if (!point)
-                return false;
-            const existingVector = point.vector;
-            if (Array.isArray(existingVector) && existingVector.length > 0)
-                return true; // already embedded
-            const r = (point.payload || {});
-            const name = r.name ?? String(r._id ?? id);
-            const title = r.vintage != null ? `${name} (${r.vintage})` : name;
-            const content = this.buildFundContent(r);
-            const vector = await this.embeddings.generateDocumentEmbedding(title, content);
-            if (!Array.isArray(vector) || vector.length === 0)
-                return false;
-            await (0, qdrant_connector_1.upsertPoints)(this.collection, [{ id, vector, payload: r }]);
-            return true;
+          await this.ensureCollection();
+          const point: any = await retrievePoint(this.collection, id, true, true);
+          if (!point) return false;
+          const existingVector = point.vector;
+          if (Array.isArray(existingVector) && existingVector.length > 0) return true; // already embedded
+          const r = (point.payload || {}) as any;
+          const name = r.name ?? String(r._id ?? id);
+          const title = r.vintage != null ? `${name} (${r.vintage})` : name;
+          const content = this.buildFundContent(r);
+          const vector = await this.embeddings.generateDocumentEmbedding(title, content);
+          if (!Array.isArray(vector) || vector.length === 0) return false;
+          await upsertPoints(this.collection, [{vector, payload: r }]);
+          return true;
+        } catch (e) {
+          return false;
         }
-        catch (e) {
-            return false;
-        }
-    }
+      } */
     async getAllDocuments(limit = 100) {
         await this.ensureCollection();
         const res = await (0, qdrant_connector_1.scrollPoints)(this.collection, {
@@ -102,20 +108,19 @@ class QdrantRepository {
         await (0, qdrant_connector_1.deletePoints)(this.collection, [id]);
         return true;
     }
-    async getEmbeddingByDocumentId(id) {
+    /*   async getEmbeddingByDocumentId(id: number): Promise<Float32Array | null> {
         await this.ensureCollection();
-        const pt = await (0, qdrant_connector_1.retrievePoint)(this.collection, id, true);
-        if (!pt)
-            return null;
-        const v = pt.vector;
+        const pt: any = await retrievePoint(this.collection, id, true);
+        if (!pt) return null;
+        const v = (pt as any).vector;
         // vector may be number[] or object with single key for named vector
-        const arr = Array.isArray(v)
-            ? v
-            : (v && typeof v === 'object'
-                ? (Array.isArray(Object.values(v)[0]) ? Object.values(v)[0] : undefined)
-                : undefined);
+        const arr: number[] | undefined = Array.isArray(v)
+          ? v
+          : (v && typeof v === 'object'
+              ? (Array.isArray((Object.values(v)[0] as any)) ? (Object.values(v)[0] as number[]) : undefined)
+              : undefined);
         return Array.isArray(arr) ? new Float32Array(arr) : null;
-    }
+      } */
     async getStats() {
         await this.ensureCollection();
         const documents = await (0, qdrant_connector_1.countPoints)(this.collection, true);
