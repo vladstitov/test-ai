@@ -37,7 +37,7 @@ export class QdrantRepository {
   }
 
   private buildFundContent(r: Partial<IOFundModel> & { name?: string }): string {
-    const aliases = Array.isArray((r as any).aliases) ? (r as any).aliases as string[] : [];
+    const aliases = Array.isArray((r as any).names) ? (r as any).names as string[] : [];
     const industries = Array.isArray(r.industries) ? r.industries : [];
     const parts: string[] = [];
     parts.push(`Fund Name: ${r.name ?? 'Fund'}`);
@@ -59,38 +59,35 @@ export class QdrantRepository {
     const name: string = r.name ?? String(r._id ?? p.id);
     const title = r.vintage != null ? `${name} (${r.vintage})` : name;
     return {
-      id: Number(p.id),
-      createdAt: r.createdAt ?? new Date().toISOString(),
+      id: Number(p.id),    
       title,
       content: this.buildFundContent(r),
       ...r,
     } as Document;
   }
-/* 
-  private genNumericId(): number {
-    const high = Date.now();
-    const low = Math.floor(Math.random() * 1000);
-    return high * 1000 + low;
-  }
- */
-  async insertFund(fund: IOFundModel): Promise<void> {
+
+
+
+  async insertFund(fund: IOFundModel, i: number): Promise<void> {
     await this.ensureCollection();
-  //  const id = this.genNumericId();
+    
+    const id = Date.now() + i;
       // @ts-ignore
-    const aliases =     (fund.names || []).map((alias: string) => alias.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
+    const aliases = (fund.names || []).map((alias: string) => alias.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
   
     fund.aliases = [...new Set(aliases)] as any;
     delete (fund as any).names;
     const payload = fund as any;
     delete (payload as any).fundType;
-    delete (payload as any).id;
+    delete (payload as any)._id;
     const name = payload.name;
     const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
     const embeddingText = this.buildFundContent(payload);
-    
+    payload.embeddingText = embeddingText;
+
     const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
     
-   return  upsertPoints(this.collection, [{vector, payload , embeddingText}]);
+    return upsertPoints(this.collection, [{id, vector, payload}]);
     
   }
 

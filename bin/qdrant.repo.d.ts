@@ -14,7 +14,7 @@ export declare class QdrantRepository {
     ensureCollection(): Promise<void>;
     private buildFundContent;
     private toDocument;
-    insertFund(fund: IOFundModel): Promise<void>;
+    insertFund(fund: IOFundModel, i: number): Promise<void>;
     getAllDocuments(limit?: number): Promise<Document[]>;
     deleteDocument(id: number): Promise<boolean>;
     getStats(): Promise<{

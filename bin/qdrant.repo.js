@@ -51,28 +51,22 @@ class QdrantRepository {
             ...r,
         };
     }
-    /*
-      private genNumericId(): number {
-        const high = Date.now();
-        const low = Math.floor(Math.random() * 1000);
-        return high * 1000 + low;
-      }
-     */
-    async insertFund(fund) {
+    async insertFund(fund, i) {
         await this.ensureCollection();
-        //  const id = this.genNumericId();
+        const id = Date.now() + i;
         // @ts-ignore
         const aliases = (fund.names || []).map((alias) => alias.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim());
         fund.aliases = [...new Set(aliases)];
         delete fund.names;
         const payload = fund;
         delete payload.fundType;
-        delete payload.id;
+        delete payload._id;
         const name = payload.name;
         const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
         const embeddingText = this.buildFundContent(payload);
+        payload.embeddingText = embeddingText;
         const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
-        return (0, qdrant_connector_1.upsertPoints)(this.collection, [{ vector, payload, embeddingText }]);
+        return (0, qdrant_connector_1.upsertPoints)(this.collection, [{ id, vector, payload }]);
     }
     /*   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
         try {

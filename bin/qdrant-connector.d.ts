@@ -3,7 +3,7 @@ export declare function getQdrantClient(): QdrantClient;
 export declare function ensureCollection(collection: string, dim?: number): Promise<void>;
 export declare function dropAndCreateCollection(collection: string, dim?: number): Promise<void>;
 export type UpsertPoint = {
-    embeddingText: string;
+    id: number;
     vector?: number[];
     payload?: Record<string, any>;
 };

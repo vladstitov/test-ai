@@ -1,6 +1,7 @@
 // Strongly-typed view of a Fund document coming from MongoDB
 // Fields mirror the projection in mongo-connector
 export interface IOFundModel {
+  _id?: any;              // MongoDB ObjectId
   id: number;  /// sql primary key
 
   name: string;            // Fund name

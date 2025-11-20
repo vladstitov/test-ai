@@ -1,4 +1,5 @@
 export interface IOFundModel {
+    _id?: any;
     id: number;
     name: string;
     aliases: string[];
