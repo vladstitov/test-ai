@@ -30,15 +30,6 @@ class EmbeddingsService {
             throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-    // Generate embedding for a document (metadata removed)
-    async generateDocumentEmbedding(title, content) {
-        const combinedText = `${title}\n\n${content}`;
-        return this.generateEmbedding(combinedText);
-    }
-    // Generate embedding for search queries
-    async generateQueryEmbedding(text) {
-        return this.generateEmbedding(text);
-    }
 }
 exports.EmbeddingsService = EmbeddingsService;
 //# sourceMappingURL=embeddings.service.js.map

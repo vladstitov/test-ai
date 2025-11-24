@@ -45,7 +45,6 @@ class QdrantRepository {
         const title = r.vintage != null ? `${name} (${r.vintage})` : name;
         return {
             id: Number(p.id),
-            createdAt: r.createdAt ?? new Date().toISOString(),
             title,
             content: this.buildFundContent(r),
             ...r,
@@ -62,10 +61,9 @@ class QdrantRepository {
         delete payload.fundType;
         delete payload._id;
         const name = payload.name;
-        const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
         const embeddingText = this.buildFundContent(payload);
         payload.embeddingText = embeddingText;
-        const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
+        const vector = await this.embeddings.generateEmbedding(embeddingText);
         return (0, qdrant_connector_1.upsertPoints)(this.collection, [{ id, vector, payload }]);
     }
     /*   async generateAndStoreFundEmbeddingById(id: number): Promise<boolean> {
@@ -123,10 +121,77 @@ class QdrantRepository {
     }
     async searchSimilar(query, topK = 10) {
         await this.ensureCollection();
-        const vector = await this.embeddings.generateQueryEmbedding(query);
+        const vector = await this.embeddings.generateEmbedding(query);
         const res = await (0, qdrant_connector_1.searchPoints)(this.collection, vector, topK, true);
         const hits = res?.result ?? res ?? [];
         return hits.map((h) => ({ ...this.toDocument({ id: h.id, payload: h.payload }), distance: h.score }));
+    }
+    async countByField(fieldName, fieldValue) {
+        await this.ensureCollection();
+        const filter = {
+            must: [
+                {
+                    key: fieldName,
+                    match: { value: fieldValue }
+                }
+            ]
+        };
+        return (0, qdrant_connector_1.countPoints)(this.collection, true, filter);
+    }
+    async getDistinctValues(fieldName, limit = 1000) {
+        await this.ensureCollection();
+        const res = await (0, qdrant_connector_1.scrollPoints)(this.collection, {
+            with_payload: true,
+            with_vector: false,
+            limit,
+        });
+        const pts = res?.points ?? res?.result?.points ?? [];
+        const values = new Set();
+        pts.forEach((p) => {
+            const value = p.payload?.[fieldName];
+            if (value && typeof value === 'string') {
+                values.add(value);
+            }
+        });
+        return Array.from(values).sort();
+    }
+    async searchWithFilter(query, topK, filterField, filterValue) {
+        await this.ensureCollection();
+        const vector = await this.embeddings.generateEmbedding(query);
+        let filter = undefined;
+        if (filterField && filterValue) {
+            filter = {
+                must: [
+                    {
+                        key: filterField,
+                        match: { value: filterValue }
+                    }
+                ]
+            };
+        }
+        const res = await (0, qdrant_connector_1.searchPoints)(this.collection, vector, topK, true, filter);
+        const hits = res?.result ?? res ?? [];
+        return hits.map((h) => ({ ...this.toDocument({ id: h.id, payload: h.payload }), distance: h.score }));
+    }
+    async getTopByField(fieldName, topK, filterField, filterValue) {
+        await this.ensureCollection();
+        const scrollLimit = filterField && filterValue ? 10000 : topK * 10;
+        const res = await (0, qdrant_connector_1.scrollPoints)(this.collection, {
+            with_payload: true,
+            with_vector: false,
+            limit: scrollLimit,
+        });
+        const pts = res?.points ?? res?.result?.points ?? [];
+        let filtered = pts.map(p => this.toDocument(p));
+        if (filterField && filterValue) {
+            filtered = filtered.filter(doc => doc[filterField] === filterValue);
+        }
+        filtered.sort((a, b) => {
+            const aVal = a[fieldName] || 0;
+            const bVal = b[fieldName] || 0;
+            return bVal - aVal; // Descending order
+        });
+        return filtered.slice(0, topK);
     }
 }
 exports.QdrantRepository = QdrantRepository;

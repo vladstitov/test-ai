@@ -1,5 +1,5 @@
-import { DatabaseRepository, DocumentWithSimilarity } from './database.repo';
-import { LLMQueryInterface } from './llm-query';
+
+/* import { LLMQueryInterface } from './llm-query';
 export declare class RealLLMIntegration extends LLMQueryInterface {
     private apiKey;
     constructor(repo: DatabaseRepository, apiKey?: string | null);
@@ -8,8 +8,8 @@ export declare class RealLLMIntegration extends LLMQueryInterface {
     processNaturalLanguageQuery(userQuery: string): Promise<string>;
     getOpenAIEmbedding(text: string): Promise<number[]>;
     enhancedSemanticSearch(query: string): Promise<DocumentWithSimilarity[]>;
-    smartInsertDocument(title: string, content: string): Promise<number>;
+    smartInsertDocument(content: string): Promise<number>;
 }
 export declare function showInstallationInstructions(): void;
 export declare function demonstrateRealLLMIntegration(): Promise<void>;
-//# sourceMappingURL=llm-integration.d.ts.map
+//# sourceMappingURL=llm-integration.d.ts.map */

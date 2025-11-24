@@ -42,10 +42,10 @@ export async function insertFundsFromMongo(dbRepo: QdrantRepository, opts: LoadO
       } catch (err) {
         console.error(`[ERROR] Failed to insert fund for ${f.name}:`, err);
         console.error(`[ERROR] Fund data:`, JSON.stringify(f, null, 2));
-        break;
+      
       }
     }
-    break
+  
 
     offset += opts.limit;
   }

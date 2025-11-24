@@ -50,9 +50,13 @@ async function upsertPoints(collection, points) {
     const client = getQdrantClient();
     await client.upsert(collection, { points });
 }
-async function searchPoints(collection, vector, limit, with_payload = true) {
+async function searchPoints(collection, vector, limit, with_payload = true, filter) {
     const client = getQdrantClient();
-    return client.search(collection, { vector, limit, with_payload });
+    const params = { vector, limit, with_payload };
+    if (filter) {
+        params.filter = filter;
+    }
+    return client.search(collection, params);
 }
 async function scrollPoints(collection, params) {
     const client = getQdrantClient();
@@ -62,9 +66,13 @@ async function deletePoints(collection, ids) {
     const client = getQdrantClient();
     await client.delete(collection, { points: ids });
 }
-async function countPoints(collection, exact = true) {
+async function countPoints(collection, exact = true, filter) {
     const client = getQdrantClient();
-    const res = await client.count(collection, { exact });
+    const params = { exact };
+    if (filter) {
+        params.filter = filter;
+    }
+    const res = await client.count(collection, params);
     return Number(res?.count ?? res?.result?.count ?? 0);
 }
 async function retrievePoint(collection, id, with_vector = true, with_payload = true) {

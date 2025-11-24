@@ -28,10 +28,8 @@ async function insertFundsFromMongo(dbRepo, opts) {
             catch (err) {
                 console.error(`[ERROR] Failed to insert fund for ${f.name}:`, err);
                 console.error(`[ERROR] Fund data:`, JSON.stringify(f, null, 2));
-                break;
             }
         }
-        break;
         offset += opts.limit;
     }
     return { inserted: totalInserted, batches };

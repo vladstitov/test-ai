@@ -79,12 +79,12 @@ export class CrudRepository {
 
   private fundRowToDocument(r: { id: number; createdAt: string } & any): Document {
     const name = r.name ?? String(r._id);
-    const title = r.vintage != null ? `${name} (${r.vintage})` : name;
-    return { id: r.id, title, content: this.buildFundContent(r), createdAt: r.createdAt } as Document;
+  
+    return { id: r.id, content: this.buildFundContent(r), createdAt: r.createdAt } as Document;
   }
 
   async generateQueryEmbedding(text: string): Promise<number[]> {
-    return this.embeddingsService.generateQueryEmbedding(text);
+    return this.embeddingsService.generateEmbedding(text);
   }
 
   getEmbeddingsService(): EmbeddingsService {
@@ -102,8 +102,8 @@ export class CrudRepository {
         .get(id) as any | undefined;
       if (!r) return false;
 
-      const name = r.name ?? String(r._id);
-      const title = r.vintage != null ? `${name} (${r.vintage})` : name;
+    //  const name = r.name ?? String(r._id);
+     // const title = r.vintage != null ? `${name} (${r.vintage})` : name;
       const content = this.buildFundContent(
         {
           name: r.name,
@@ -120,7 +120,7 @@ export class CrudRepository {
         { includeName: false }
       );
 
-      const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content);
+      const embedding = await this.embeddingsService.generateEmbedding(content);
       if (!Array.isArray(embedding) || embedding.length === 0) return false;
 
       const blob = Buffer.from(new Float32Array(embedding).buffer);

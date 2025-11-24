@@ -25,5 +25,11 @@ export declare class QdrantRepository {
     searchSimilar(query: string, topK?: number): Promise<Array<Document & {
         distance: number;
     }>>;
+    countByField(fieldName: string, fieldValue: string): Promise<number>;
+    getDistinctValues(fieldName: string, limit?: number): Promise<string[]>;
+    searchWithFilter(query: string, topK: number, filterField?: string, filterValue?: string): Promise<Array<Document & {
+        distance: number;
+    }>>;
+    getTopByField(fieldName: string, topK: number, filterField?: string, filterValue?: string): Promise<Document[]>;
 }
 //# sourceMappingURL=qdrant.repo.d.ts.map

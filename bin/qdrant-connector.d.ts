@@ -8,7 +8,7 @@ export type UpsertPoint = {
     payload?: Record<string, any>;
 };
 export declare function upsertPoints(collection: string, points: UpsertPoint[]): Promise<void>;
-export declare function searchPoints(collection: string, vector: number[], limit: number, with_payload?: boolean): Promise<{
+export declare function searchPoints(collection: string, vector: number[], limit: number, with_payload?: boolean, filter?: any): Promise<{
     id: string | number;
     version: number;
     score: number;
@@ -42,6 +42,6 @@ export declare function scrollPoints(collection: string, params: any): Promise<{
     next_page_offset?: string | number | Record<string, unknown> | null | undefined;
 }>;
 export declare function deletePoints(collection: string, ids: Array<number | string>): Promise<void>;
-export declare function countPoints(collection: string, exact?: boolean): Promise<number>;
+export declare function countPoints(collection: string, exact?: boolean, filter?: any): Promise<number>;
 export declare function retrievePoint(collection: string, id: number | string, with_vector?: boolean, with_payload?: boolean): Promise<any>;
 //# sourceMappingURL=qdrant-connector.d.ts.map

@@ -50,11 +50,10 @@ class CrudRepository {
     }
     fundRowToDocument(r) {
         const name = r.name ?? String(r._id);
-        const title = r.vintage != null ? `${name} (${r.vintage})` : name;
-        return { id: r.id, title, content: this.buildFundContent(r), createdAt: r.createdAt };
+        return { id: r.id, content: this.buildFundContent(r), createdAt: r.createdAt };
     }
     async generateQueryEmbedding(text) {
-        return this.embeddingsService.generateQueryEmbedding(text);
+        return this.embeddingsService.generateEmbedding(text);
     }
     getEmbeddingsService() {
         return this.embeddingsService;
@@ -68,8 +67,8 @@ class CrudRepository {
                 .get(id);
             if (!r)
                 return false;
-            const name = r.name ?? String(r._id);
-            const title = r.vintage != null ? `${name} (${r.vintage})` : name;
+            //  const name = r.name ?? String(r._id);
+            // const title = r.vintage != null ? `${name} (${r.vintage})` : name;
             const content = this.buildFundContent({
                 name: r.name,
                 aliases: r.aliases,
@@ -82,7 +81,7 @@ class CrudRepository {
                 status: r.status,
                 industries: r.industries,
             }, { includeName: false });
-            const embedding = await this.embeddingsService.generateDocumentEmbedding(title, content);
+            const embedding = await this.embeddingsService.generateEmbedding(content);
             if (!Array.isArray(embedding) || embedding.length === 0)
                 return false;
             const blob = Buffer.from(new Float32Array(embedding).buffer);

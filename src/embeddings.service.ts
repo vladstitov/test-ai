@@ -30,18 +30,5 @@ export class EmbeddingsService {
       console.error('??O Error generating embedding with Ollama:', error);
       throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }
-
-  // Generate embedding for a document (metadata removed)
-  async generateDocumentEmbedding(title: string, content: string): Promise<number[]> {
-    const combinedText = `${title}\n\n${content}`;
-    return this.generateEmbedding(combinedText);
-  }
-
-  // Generate embedding for search queries
-  async generateQueryEmbedding(text: string): Promise<number[]> {
-    return this.generateEmbedding(text);
-  }
-
-  
+  }  
 }

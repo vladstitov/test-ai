@@ -37,7 +37,7 @@ export class QdrantRepository {
   }
 
   private buildFundContent(r: Partial<IOFundModel> & { name?: string }): string {
-    const aliases = Array.isArray((r as any).names) ? (r as any).names as string[] : [];
+    const aliases = Array.isArray((r as any).aliases) ? (r as any).aliases as string[] : [];
     const industries = Array.isArray(r.industries) ? r.industries : [];
     const parts: string[] = [];
     parts.push(`Fund Name: ${r.name ?? 'Fund'}`);
@@ -80,12 +80,11 @@ export class QdrantRepository {
     const payload = fund as any;
     delete (payload as any).fundType;
     delete (payload as any)._id;
-    const name = payload.name;
-    const title = payload.vintage != null ? `${name} (${payload.vintage})` : name;
+    const name = payload.name;   
     const embeddingText = this.buildFundContent(payload);
     payload.embeddingText = embeddingText;
 
-    const vector = await this.embeddings.generateDocumentEmbedding(title, embeddingText);
+    const vector = await this.embeddings.generateEmbedding(embeddingText);
     
     return upsertPoints(this.collection, [{id, vector, payload}]);
     
@@ -151,9 +150,86 @@ export class QdrantRepository {
 
   async searchSimilar(query: string, topK: number = 10): Promise<Array<Document & { distance: number }>> {
     await this.ensureCollection();
-    const vector = await this.embeddings.generateQueryEmbedding(query);
+    const vector = await this.embeddings.generateEmbedding(query);
     const res: any = await searchPoints(this.collection, vector, topK, true);
     const hits: any[] = (res as any)?.result ?? res ?? [];
     return hits.map((h: any) => ({ ...this.toDocument({ id: h.id, payload: h.payload }), distance: h.score }));
+  }
+
+  async countByField(fieldName: string, fieldValue: string): Promise<number> {
+    await this.ensureCollection();
+    const filter = {
+      must: [
+        {
+          key: fieldName,
+          match: { value: fieldValue }
+        }
+      ]
+    };
+    return countPoints(this.collection, true, filter);
+  }
+
+  async getDistinctValues(fieldName: string, limit: number = 1000): Promise<string[]> {
+    await this.ensureCollection();
+    const res: any = await scrollPoints(this.collection, {
+      with_payload: true,
+      with_vector: false,
+      limit,
+    });
+    const pts: QdrantPoint[] = res?.points ?? res?.result?.points ?? [];
+    const values = new Set<string>();
+    pts.forEach((p) => {
+      const value = (p.payload as any)?.[fieldName];
+      if (value && typeof value === 'string') {
+        values.add(value);
+      }
+    });
+    return Array.from(values).sort();
+  }
+
+  async searchWithFilter(query: string, topK: number, filterField?: string, filterValue?: string): Promise<Array<Document & { distance: number }>> {
+    await this.ensureCollection();
+    const vector = await this.embeddings.generateEmbedding(query);
+    
+    let filter: any = undefined;
+    if (filterField && filterValue) {
+      filter = {
+        must: [
+          {
+            key: filterField,
+            match: { value: filterValue }
+          }
+        ]
+      };
+    }
+    
+    const res: any = await searchPoints(this.collection, vector, topK, true, filter);
+    const hits: any[] = (res as any)?.result ?? res ?? [];
+    return hits.map((h: any) => ({ ...this.toDocument({ id: h.id, payload: h.payload }), distance: h.score }));
+  }
+
+  async getTopByField(fieldName: string, topK: number, filterField?: string, filterValue?: string): Promise<Document[]> {
+    await this.ensureCollection();
+    const scrollLimit = filterField && filterValue ? 10000 : topK * 10;
+    const res: any = await scrollPoints(this.collection, {
+      with_payload: true,
+      with_vector: false,
+      limit: scrollLimit,
+    });
+    const pts: QdrantPoint[] = res?.points ?? res?.result?.points ?? [];
+    
+    let filtered = pts.map(p => this.toDocument(p));
+    
+    if (filterField && filterValue) {
+      filtered = filtered.filter(doc => (doc as any)[filterField] === filterValue);
+    }
+    
+    filtered.sort((a, b) => {
+      const aVal = (a as any)[fieldName] || 0;
+      const bVal = (b as any)[fieldName] || 0;
+      return bVal - aVal; // Descending order
+    });
+    
+    return filtered.slice(0, topK);
   }
 }
