@@ -232,4 +232,41 @@ export class QdrantRepository {
     
     return filtered.slice(0, topK);
   }
+
+  async findDuplicatesByField(fieldName: string = 'name'): Promise<Array<{ value: string; count: number; funds: Document[] }>> {
+    await this.ensureCollection();
+    const res: any = await scrollPoints(this.collection, {
+      with_payload: true,
+      with_vector: false,
+      limit: 50000,
+    });
+    const pts: QdrantPoint[] = res?.points ?? res?.result?.points ?? [];
+    const docs = pts.map(p => this.toDocument(p));
+    
+    // Group by field value
+    const groups = new Map<string, Document[]>();
+    docs.forEach(doc => {
+      const value = (doc as any)[fieldName];
+      if (value) {
+        const key = String(value).toLowerCase().trim();
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(doc);
+      }
+    });
+    
+    // Filter to only duplicates (count > 1)
+    const duplicates: Array<{ value: string; count: number; funds: Document[] }> = [];
+    groups.forEach((funds, value) => {
+      if (funds.length > 1) {
+        duplicates.push({ value, count: funds.length, funds });
+      }
+    });
+    
+    // Sort by count descending
+    duplicates.sort((a, b) => b.count - a.count);
+    
+    return duplicates;
+  }
 }

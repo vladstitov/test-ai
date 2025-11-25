@@ -121,19 +121,51 @@ When answering questions:
     sortBy?: string;
     limit: number;
   }> {
-    const prompt = `Parse this natural language query into structured parameters.
-Available fields: name, geography, strategy, vintage, fundSize, targetSize, status, industries
+    const fundStructure = `
+FUND DATABASE STRUCTURE:
+- name: string (Fund name)
+- aliases: string[] (Alternative names)
+- manager: string (Fund manager)
+- vintage: number (Year fund was established)
+- strategy: string (Investment strategy, e.g., VC, PE, Growth)
+- geography: string (Geographic focus, e.g., Asia, Europe, North America)
+- strategyGroup: string (Strategy category)
+- geographyGroup: string (Geography category)
+- fundSize: number (Fund size in millions)
+- targetSize: number (Target fund size in millions)
+- status: string (e.g., Active, Closed, Raising)
+- industries: string[] (Focus industries, e.g., Technology, Healthcare)
 
-Query: "${userMessage}"
+ACTIONS:
+- search: Semantic search for funds
+- count: Count funds matching criteria
+- list: List all distinct values for a field
+- top: Get top N funds sorted by a field
+
+SORTABLE FIELDS: fundSize, targetSize, vintage
+FILTERABLE FIELDS: geography, strategy, status, industries, vintage
+LISTABLE FIELDS: geography, strategy, status, industries`;
+
+    const prompt = `${fundStructure}
+
+Parse this natural language query into structured parameters for querying the fund database.
+
+User Query: "${userMessage}"
 
 Respond with JSON only:
 {
   "action": "search|count|list|top",
-  "field": "field to filter (or null)",
-  "value": "value to match (or null)",
-  "sortBy": "field to sort by (or null)",
-  "limit": number of results
-}`;
+  "field": "field to filter (e.g., geography, strategy) or null",
+  "value": "value to match (e.g., Asia, VC) or null",
+  "sortBy": "field to sort by (e.g., fundSize, vintage) or null",
+  "limit": number of results to return
+}
+
+Examples:
+- "Show me 10 funds in Asia" → {"action":"search","field":"geography","value":"Asia","sortBy":null,"limit":10}
+- "Count VC funds" → {"action":"count","field":"strategy","value":"VC","sortBy":null,"limit":0}
+- "Top 5 largest funds" → {"action":"top","field":null,"value":null,"sortBy":"fundSize","limit":5}
+- "List all geographies" → {"action":"list","field":"geography","value":null,"sortBy":null,"limit":0}`;
 
     try {
       const response = await this.ollama.chat({
@@ -166,8 +198,32 @@ Respond with JSON only:
         aiQuery = await this.buildQueryFromNaturalLanguage(userMessage);
       }
 
-      // 1. Check if this is a list query (use AI if enabled, otherwise regex)
+      // 1. Check if this is a duplicate detection query
+      const isDuplicateQuery = /duplicate|same name|repeated|multiple funds with/i.test(userMessage);
       let statsInfo = '';
+      
+      if (isDuplicateQuery) {
+        console.log('[INFO] Finding duplicate funds...');
+        const duplicates = await this.qdrantRepo.findDuplicatesByField('name');
+        if (duplicates.length > 0) {
+          statsInfo += `\nFound ${duplicates.length} duplicate fund names:\n`;
+          duplicates.forEach(dup => {
+            statsInfo += `\n"${dup.value}" - ${dup.count} funds:\n`;
+            dup.funds.forEach(fund => {
+              statsInfo += `  - ${fund.title || fund.name}`;
+              if (fund.vintage) statsInfo += ` (${fund.vintage})`;
+              if (fund.geography) statsInfo += ` - ${fund.geography}`;
+              statsInfo += `\n`;
+            });
+          });
+          console.log(`[INFO] Found ${duplicates.length} duplicate names`);
+        } else {
+          statsInfo += '\nNo duplicate fund names found.\n';
+          console.log('[INFO] No duplicates found');
+        }
+      }
+
+      // 2. Check if this is a list query (use AI if enabled, otherwise regex)
       const isListQuery = aiQuery?.action === 'list' || /list all|show all|what are all|all available/i.test(userMessage);
       
       if (isListQuery) {
@@ -192,7 +248,7 @@ Respond with JSON only:
         }
       }
       
-      // 2. Check if this is a count/stats query
+      // 3. Check if this is a count/stats query
       const isCountQuery = /how many|total|count|number of/i.test(userMessage);
       
       if (isCountQuery) {
@@ -218,7 +274,7 @@ Respond with JSON only:
         }
       }
 
-      // 2. Search for relevant funds (skip if we already have all info from count/list query)
+      // 4. Search for relevant funds (skip if we already have all info from count/list/duplicate query)
       console.log(`\n[USER] ${userMessage}`);
       let searchResults: any[] = [];
       
@@ -249,7 +305,7 @@ Respond with JSON only:
         }
       }
       
-      if (!isCountQuery || statsInfo === '') {
+      if (!isCountQuery && !isDuplicateQuery || statsInfo === '') {
         if (sortByField) {
           console.log(`[INFO] Fetching top ${topK} funds by ${sortByField}${filterValue ? ` in ${filterValue}` : ''}`);
           searchResults = await this.qdrantRepo.getTopByField(sortByField, topK, filterField, filterValue);

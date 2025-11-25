@@ -31,5 +31,10 @@ export declare class QdrantRepository {
         distance: number;
     }>>;
     getTopByField(fieldName: string, topK: number, filterField?: string, filterValue?: string): Promise<Document[]>;
+    findDuplicatesByField(fieldName?: string): Promise<Array<{
+        value: string;
+        count: number;
+        funds: Document[];
+    }>>;
 }
 //# sourceMappingURL=qdrant.repo.d.ts.map

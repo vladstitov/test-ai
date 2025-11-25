@@ -193,6 +193,38 @@ class QdrantRepository {
         });
         return filtered.slice(0, topK);
     }
+    async findDuplicatesByField(fieldName = 'name') {
+        await this.ensureCollection();
+        const res = await (0, qdrant_connector_1.scrollPoints)(this.collection, {
+            with_payload: true,
+            with_vector: false,
+            limit: 50000,
+        });
+        const pts = res?.points ?? res?.result?.points ?? [];
+        const docs = pts.map(p => this.toDocument(p));
+        // Group by field value
+        const groups = new Map();
+        docs.forEach(doc => {
+            const value = doc[fieldName];
+            if (value) {
+                const key = String(value).toLowerCase().trim();
+                if (!groups.has(key)) {
+                    groups.set(key, []);
+                }
+                groups.get(key).push(doc);
+            }
+        });
+        // Filter to only duplicates (count > 1)
+        const duplicates = [];
+        groups.forEach((funds, value) => {
+            if (funds.length > 1) {
+                duplicates.push({ value, count: funds.length, funds });
+            }
+        });
+        // Sort by count descending
+        duplicates.sort((a, b) => b.count - a.count);
+        return duplicates;
+    }
 }
 exports.QdrantRepository = QdrantRepository;
 //# sourceMappingURL=qdrant.repo.js.map

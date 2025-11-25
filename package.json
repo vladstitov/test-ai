@@ -6,9 +6,8 @@
   "types": "bin/app.d.ts",
   "scripts": {
     "build": "tsc",
-    "build:watch": "tsc -w",
-    "start": "npm run build && node bin/app.js",
-    "dev": "npm run build:watch",
+    "watch": "tsc -w",
+    "start": "npm run build && node bin/app.js",    
     "test": "npm run build && node bin/test.js",
     "chat": "npm run build && node bin/chat-interface.js",
     "offline-chat": "npm run build && node bin/offline-chat.js",
