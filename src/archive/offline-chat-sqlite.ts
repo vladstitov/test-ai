@@ -3,10 +3,10 @@
 // ========================================
 
 import { Ollama } from 'ollama';
-import { CrudRepository } from './crud.repo';
-import { SearchRepository } from './search.repo';
-import { EmbeddingsService } from './embeddings.service';
-import { getOllama } from './ollama-singleton';
+import { CrudRepository } from '../crud.repo';
+import { SearchRepository } from '../search.repo';
+import { EmbeddingsService } from '../embeddings.service';
+import { getOllama } from '../ollama-singleton';
 
 // ========================================
 // OLLAMA CLIENT INTERFACE
@@ -516,7 +516,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
       setup.instructions.forEach(instruction => {
         console.log(`   ${instruction}`);
       });
-      console.log('\n[INFO] Ollama is NOT a web server — it\'s a desktop app that runs locally!');
+      console.log('\n[INFO] Ollama is NOT a web server ï¿½ it\'s a desktop app that runs locally!');
       console.log('[INFO] Once you start "ollama serve", it runs at http://localhost:11434');
       return;
     }
@@ -559,7 +559,7 @@ export async function startOfflineDatabaseChat(): Promise<void> {
 
     
     // Start console interface (reuse existing one)
-    const { ConsoleChatInterface } = await import('./chat-interface');
+    const { ConsoleChatInterface } = await import('../chat-interface');
     const chatInterface = new ConsoleChatInterface(chatService as any);
     await chatInterface.start();
     

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const sqlite_connector_1 = require("./sqlite-connector");
+const sqlite_connector_1 = require("./archive/sqlite-connector");
 const crud_repo_1 = require("./crud.repo");
 const search_repo_1 = require("./search.repo");
 const embeddings_service_1 = require("./embeddings.service");

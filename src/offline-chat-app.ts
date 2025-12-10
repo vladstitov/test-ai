@@ -6,6 +6,7 @@ import { Ollama } from 'ollama';
 import { QdrantRepository } from './qdrant.repo';
 import { EmbeddingsService } from './embeddings.service';
 import { getOllama } from './ollama-singleton';
+import { buildQueryFromNaturalLanguage, QueryParams } from './query-creator';
 import * as readline from 'readline';
 
 // ========================================
@@ -32,7 +33,7 @@ interface ChatResponse {
 // OFFLINE CHAT SERVICE FOR QDRANT
 // ========================================
 
-export class OfflineChatQdrantService {
+export class OfflineChatApp {
   private ollama: Ollama;
   private qdrantRepo: QdrantRepository;
   private embeddings: EmbeddingsService;
@@ -111,80 +112,6 @@ When answering questions:
   }
 
   // ========================================
-  // AI QUERY BUILDER
-  // ========================================
-
-  private async buildQueryFromNaturalLanguage(userMessage: string): Promise<{
-    action: 'search' | 'count' | 'list' | 'top';
-    field?: string;
-    value?: string;
-    sortBy?: string;
-    limit: number;
-  }> {
-    const fundStructure = `
-FUND DATABASE STRUCTURE:
-- name: string (Fund name)
-- aliases: string[] (Alternative names)
-- manager: string (Fund manager)
-- vintage: number (Year fund was established)
-- strategy: string (Investment strategy, e.g., VC, PE, Growth)
-- geography: string (Geographic focus, e.g., Asia, Europe, North America)
-- strategyGroup: string (Strategy category)
-- geographyGroup: string (Geography category)
-- fundSize: number (Fund size in millions)
-- targetSize: number (Target fund size in millions)
-- status: string (e.g., Active, Closed, Raising)
-- industries: string[] (Focus industries, e.g., Technology, Healthcare)
-
-ACTIONS:
-- search: Semantic search for funds
-- count: Count funds matching criteria
-- list: List all distinct values for a field
-- top: Get top N funds sorted by a field
-
-SORTABLE FIELDS: fundSize, targetSize, vintage
-FILTERABLE FIELDS: geography, strategy, status, industries, vintage
-LISTABLE FIELDS: geography, strategy, status, industries`;
-
-    const prompt = `${fundStructure}
-
-Parse this natural language query into structured parameters for querying the fund database.
-
-User Query: "${userMessage}"
-
-Respond with JSON only:
-{
-  "action": "search|count|list|top",
-  "field": "field to filter (e.g., geography, strategy) or null",
-  "value": "value to match (e.g., Asia, VC) or null",
-  "sortBy": "field to sort by (e.g., fundSize, vintage) or null",
-  "limit": number of results to return
-}
-
-Examples:
-- "Show me 10 funds in Asia" → {"action":"search","field":"geography","value":"Asia","sortBy":null,"limit":10}
-- "Count VC funds" → {"action":"count","field":"strategy","value":"VC","sortBy":null,"limit":0}
-- "Top 5 largest funds" → {"action":"top","field":null,"value":null,"sortBy":"fundSize","limit":5}
-- "List all geographies" → {"action":"list","field":"geography","value":null,"sortBy":null,"limit":0}`;
-
-    try {
-      const response = await this.ollama.chat({
-        model: this.chatModel,
-        messages: [{ role: 'user', content: prompt }],
-        stream: false,
-        format: 'json'
-      });
-
-      const parsed = JSON.parse(response.message.content);
-      console.log('[AI QUERY]', parsed);
-      return parsed;
-    } catch (error) {
-      console.warn('[WARN] AI query parsing failed, using fallback');
-      return { action: 'search', limit: 5 };
-    }
-  }
-
-  // ========================================
   // CHAT WITH CONTEXT
   // ========================================
 
@@ -193,9 +120,9 @@ Examples:
 
     try {
       // 0. Use AI to parse query if enabled
-      let aiQuery: any = null;
+      let aiQuery: QueryParams | null = null;
       if (useAIQueryBuilder) {
-        aiQuery = await this.buildQueryFromNaturalLanguage(userMessage);
+        aiQuery = await buildQueryFromNaturalLanguage(userMessage, this.chatModel);
       }
 
       // 1. Check if this is a duplicate detection query
@@ -406,7 +333,7 @@ Examples:
 // INTERACTIVE CHAT LOOP
 // ========================================
 
-async function interactiveChatLoop(chatService: OfflineChatQdrantService) {
+async function interactiveChatLoop(chatService: OfflineChatApp) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -489,7 +416,7 @@ async function main() {
     }
 
     // Initialize chat service
-    const chatService = new OfflineChatQdrantService(qdrantRepo, embeddings);
+    const chatService = new OfflineChatApp(qdrantRepo, embeddings);
 
     // Start interactive chat
     await interactiveChatLoop(chatService);

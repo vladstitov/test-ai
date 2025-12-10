@@ -1,11 +1,11 @@
 import { connectDB, createFundScema, deleteFundsSchema} from './sqlite-connector';
-import { CrudRepository } from './crud.repo';
-import { QdrantRepository } from './qdrant.repo';
-import { dropAndCreateCollection } from './qdrant-connector';
+import { CrudRepository } from '../crud.repo';
+import { QdrantRepository } from '../qdrant.repo';
+import { dropAndCreateCollection } from '../qdrant-connector';
 import { ConnectToMongo, getFunds /*, getPrices*/ } from './mongo-connector';
-import { EmbeddingsService } from './embeddings.service';
-import { getOllama } from './ollama-singleton';
-import type { IOFundModel } from './fund.types';
+import { EmbeddingsService } from '../embeddings.service';
+import { getOllama } from '../ollama-singleton';
+import type { IOFundModel } from '../fund.types';
 
 interface LoadOptions {
   offset: number; 

@@ -1,7 +1,7 @@
 import { connectDB } from './sqlite-connector';
-import { CrudRepository } from './crud.repo';
-import { EmbeddingsService } from './embeddings.service';
-import { getOllama } from './ollama-singleton';
+import { CrudRepository } from '../crud.repo';
+import { EmbeddingsService } from '../embeddings.service';
+import { getOllama } from '../ollama-singleton';
 
 // Example usage - call createDB when you need it
 async function main(): Promise<void> {

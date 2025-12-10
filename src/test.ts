@@ -1,4 +1,4 @@
-import { connectDB } from './sqlite-connector';
+import { connectDB } from './archive/sqlite-connector';
 import { CrudRepository } from './crud.repo';
 import { SearchRepository } from './search.repo';
 import { EmbeddingsService } from './embeddings.service';

@@ -1,6 +1,6 @@
 type AnyDoc = Record<string, any>;
 import { MongoClient } from 'mongodb';
-import type { IOFundModel } from './fund.types';
+import type { IOFundModel } from '../fund.types';
 
 interface ImportOptions {
   mongoUri?: string; host?: string; port?: string | number; user?: string; pass?: string; db?: string; params?: string;
