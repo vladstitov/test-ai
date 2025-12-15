@@ -40,12 +40,12 @@ LISTABLE FIELDS: geography, strategy, status, industries`;
 /**
  * Builds a structured query from natural language using an LLM
  * @param userMessage - The natural language query from the user
- * @param chatModel - The LLM model to use for parsing (default: 'gemma3:4b')
+ * @param chatModel - The LLM model to use for parsing (default: 'deepseek-r1:32b')
  * @returns Structured query parameters or fallback defaults
  */
 export async function buildQueryFromNaturalLanguage(
   userMessage: string,
-  chatModel: string = 'gemma3:4b'
+  chatModel: string = 'deepseek-r1:32b'
 ): Promise<QueryParams> {
   const prompt = `${FUND_STRUCTURE}
 

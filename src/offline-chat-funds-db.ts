@@ -44,7 +44,7 @@ export class OfflineChatApp {
   constructor(
     qdrantRepo: QdrantRepository,
     embeddings: EmbeddingsService,
-    chatModel: string = 'gemma3:4b'
+    chatModel: string = 'deepseek-r1:32b'
   ) {
     this.ollama = getOllama();
     this.qdrantRepo = qdrantRepo;

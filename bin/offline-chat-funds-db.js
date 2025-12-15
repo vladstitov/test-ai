@@ -389,4 +389,4 @@ async function main() {
 if (require.main === module) {
     main();
 }
-//# sourceMappingURL=offline-chat-app.js.map
+//# sourceMappingURL=offline-chat-funds-db.js.map
